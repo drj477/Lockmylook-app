@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright
+        entry: pyright
+        language: system
+        types: [python]
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+# NOTE: pytest only runs on `git push` (stages: [pre-push]), not on every
+# commit. Black/isort/Ruff/Pyright are fast enough for pre-commit; the full
+# test suite is not, and a slow pre-commit hook is the #1 reason developers
+# start bypassing checks with --no-verify. Run:
+#   pre-commit install --hook-type pre-commit --hook-type pre-push
+# to activate both stages.

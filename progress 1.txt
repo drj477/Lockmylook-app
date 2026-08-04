@@ -1,0 +1,342 @@
+🚀 LockMyLook - Project Summary (Current Status)
+Vision
+
+LockMyLook is an AI-powered digital wardrobe and personal stylist.
+
+One account can have multiple profiles (Netflix-style).
+
+Each profile has its own:
+
+Wardrobe
+Photos
+AI recommendations
+Locked Looks
+Planner
+Analytics
+Wear history
+Product Decisions (Locked)
+Account Model
+Account
+│
+├── Profile (You)
+├── Profile (Partner)
+├── Profile (Child)
+└── Profile (...)
+
+One login.
+
+Unlimited profiles (subscription dependent later).
+
+Core Philosophy
+
+We are not building a shopping app.
+
+We are building a personal wardrobe operating system.
+
+AI Features (Future)
+Virtual Try-On
+Outfit Recommendation
+Background Removal
+Color Detection
+Clothing Detection
+AI Metadata
+Outfit Images
+Technology Stack (Locked)
+Layer	Technology
+Mobile	Flutter
+Backend	FastAPI
+Database	PostgreSQL
+ORM	SQLModel
+Migrations	Alembic
+Authentication	JWT
+Password Hashing	Argon2
+Logging	Loguru
+Validation	Pydantic v2
+Testing	Pytest
+Image Storage	Local (Sprint 2), Cloudinary later
+Docker	Infrastructure only (PostgreSQL)
+Development Philosophy
+
+We're building like a disciplined startup.
+
+Not over-engineered.
+
+Not hacked together.
+
+Architecture (Frozen)
+Router
+    ↓
+Service
+    ↓
+SQLModel
+    ↓
+PostgreSQL
+
+We intentionally removed:
+
+Repository layer
+Redis
+Celery
+CQRS
+Event bus
+Microservices
+
+Those will only be introduced if real usage justifies them.
+
+Folder Structure (Current)
+backend/
+│
+├── app/
+│   ├── auth/
+│   ├── profiles/
+│   ├── wardrobe/ (next)
+│   ├── core/
+│   ├── database/
+│   └── main.py
+│
+├── tests/
+├── alembic/
+└── pyproject.toml
+Sprint 1 (Completed)
+Infrastructure
+FastAPI
+SQLModel
+PostgreSQL
+Alembic
+Logging
+Global exception handling
+Middleware
+Health endpoint
+Authentication
+Signup
+Login
+JWT
+Password hashing
+Profiles
+Profile CRUD
+Profile ownership protection
+Tests
+
+Authentication tests
+
+Ownership tests
+
+Engineering Decisions
+Docker
+
+Only PostgreSQL runs inside Docker.
+
+Development:
+
+Docker PostgreSQL
+
+↓
+
+Native FastAPI
+
+↓
+
+uvicorn --reload
+API Versioning
+
+Everything
+
+/api/v1/
+Error Handling
+
+Global.
+
+Services raise exceptions.
+
+Routers don't contain try/except blocks.
+
+Response Format
+{
+    "success": true,
+    "message": "...",
+    "data": {...},
+    "errors": []
+}
+
+Every endpoint follows the same contract.
+
+Security
+
+Profile ownership returns 404, not 403.
+
+Never leak whether another user's resource exists.
+
+Logging
+
+Meaningful business events only.
+
+Examples:
+
+User registered
+User logged in
+Profile created
+Wardrobe uploaded
+Outfit generated
+
+Never log:
+
+Passwords
+JWTs
+Sensitive personal data
+Code Style
+Ruff
+Black
+isort
+Pyright
+Pre-commit hooks
+Sprint 2 (Current)
+
+We renamed Sprint 2 into two parts.
+
+Sprint 2A
+
+Digital Wardrobe
+
+This sprint has no AI.
+
+Deliverables:
+
+Wardrobe categories
+Wardrobe items
+Wardrobe images
+Upload
+Edit
+Delete
+Search
+Favorites
+Local storage
+Thumbnail generation
+Sprint 2B
+
+Wardrobe Intelligence
+
+Background removal
+Auto categorization
+Auto colors
+AI metadata
+Database Plan
+Tables
+wardrobe_categories
+
+wardrobe_items
+
+wardrobe_images
+
+Multiple images per clothing item.
+
+No AI fields mixed into the core tables.
+
+Storage
+
+Current
+
+uploads/
+
+    wardrobe/
+
+        profile_uuid/
+
+            original/
+
+            thumbnails/
+
+Later
+
+Cloudinary
+
+↓
+
+S3/R2
+
+APIs Planned
+POST   /api/v1/wardrobe
+
+GET    /api/v1/wardrobe
+
+GET    /api/v1/wardrobe/{id}
+
+PATCH  /api/v1/wardrobe/{id}
+
+DELETE /api/v1/wardrobe/{id}
+
+PATCH  /api/v1/wardrobe/{id}/favorite
+Current Code
+
+We have already started:
+
+wardrobe/model.py
+wardrobe/schema.py
+wardrobe/service.py
+wardrobe/router.py
+
+and updated main.py to register the Wardrobe router.
+
+Next Implementation Plan
+
+We'll implement Sprint 2A as four reviewable pull requests.
+
+PR #1
+Wardrobe models
+Database migration
+Categories
+PR #2
+Storage service
+Local image upload
+Thumbnail generation
+PR #3
+Wardrobe CRUD APIs
+PR #4
+Search
+Favorites
+Tests
+Documentation
+
+Each PR should compile, pass tests, and be merge-ready.
+
+Engineering Rules (Frozen)
+Feature-first modules
+Thin routers
+Business logic in services
+SQLModel directly (no repository layer)
+Global exception handling
+Environment-based configuration
+Alembic migrations from day one
+Short-lived feature branches
+Vertical-slice development
+Architecture changes only if implementation proves they're needed
+Current Project Status
+
+Progress: ~15–20% of the backend foundation.
+
+Completed:
+
+Infrastructure
+Authentication
+Profiles
+
+In Progress:
+
+Digital Wardrobe (Sprint 2A)
+
+Upcoming:
+
+Finish Sprint 2A (Wardrobe)
+Sprint 2B (Wardrobe Intelligence)
+Sprint 3 (Rule-based Outfit Engine)
+Sprint 4 (AI-powered Outfit Recommendations)
+Sprint 5 (Virtual Try-On)
+Planner, Laundry, Analytics, and Premium features
+Where we are now
+
+We've finished the planning phase and the core backend foundation. The architecture is intentionally frozen so we can focus on shipping.
+
+From the next coding session onward, our goal is simple:
+
+Every session should end with working, testable, user-visible functionality.
+
+That's how we'll take LockMyLook from an idea to a production-ready product.
