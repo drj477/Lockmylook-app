@@ -1,37 +1,33 @@
-from uuid import UUID
-
 from fastapi import Depends
-from sqlmodel import Session, select
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError
+from sqlmodel import Session
 
-from app.auth.dependencies import get_current_account
 from app.auth.model import Account
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import UnauthorizedError
+from app.core.security import TokenType, decode_token
 from app.database.session import get_session
-from app.profiles.model import Profile
+
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_owned_profile(
-    profile_id: UUID,
-    current_account: Account = Depends(get_current_account),
+def get_current_account(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     session: Session = Depends(get_session),
-) -> Profile:
+) -> Account:
+    """Dependency used by every protected route. Raises UnauthorizedError
+    (-> 401 via the global handler) for any missing/invalid/expired token.
     """
-    Returns a profile only if it belongs to the authenticated account.
+    if credentials is None:
+        raise UnauthorizedError("Authentication required.")
 
-    Security:
-    - Returns 404 if the profile doesn't exist.
-    - Returns 404 if the profile belongs to another account.
-    - Never leaks whether another user's profile exists.
-    """
+    try:
+        account_id = decode_token(credentials.credentials, expected_type=TokenType.ACCESS)
+    except (JWTError, ValueError) as exc:
+        raise UnauthorizedError("Invalid or expired token.") from exc
 
-    statement = select(Profile).where(
-        Profile.id == profile_id,
-        Profile.account_id == current_account.id,
-    )
+    account = session.get(Account, account_id)
+    if not account or not account.is_active:
+        raise UnauthorizedError("Invalid or expired token.")
 
-    profile = session.exec(statement).first()
-
-    if profile is None:
-        raise NotFoundError("Profile not found.")
-
-    return profile
+    return account
