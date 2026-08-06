@@ -4,9 +4,14 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
-from app.auth.model import Account  # noqa: F401  -- registers table metadata
+from app.auth.model import Account  # noqa: F401
 from app.core.config import get_settings
-from app.profiles.model import Profile  # noqa: F401  -- registers table metadata
+from app.profiles.model import Profile  # noqa: F401
+from app.wardrobe.model import (  # noqa: F401
+    WardrobeCategory,
+    WardrobeImage,
+    WardrobeItem,
+)
 
 config = context.config
 

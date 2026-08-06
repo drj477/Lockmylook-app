@@ -1,7 +1,9 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from sqlalchemy import text
 
@@ -13,7 +15,13 @@ from app.core.logging import configure_logging
 from app.core.middleware import RequestIDMiddleware
 from app.database import session as db_session
 from app.profiles.router import router as profiles_router
-from app.wardrobe.router import router as wardrobe_router  # NEW
+from app.wardrobe.category_router import (
+    router as wardrobe_category_router,
+)
+from app.wardrobe.image_router import (
+    router as wardrobe_image_router,
+)
+from app.wardrobe.router import router as wardrobe_router
 
 
 @asynccontextmanager
@@ -26,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         logger.info("Database connection verified at startup.")
 
-    except Exception as exc:
+    except Exception:
         logger.exception("Database connection failed at startup.")
         raise
 
@@ -48,34 +56,82 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # ------------------------------------------------------------------
     # Middleware
+    # ------------------------------------------------------------------
+
     app.add_middleware(RequestIDMiddleware)
 
+    # ------------------------------------------------------------------
     # Exception Handlers
+    # ------------------------------------------------------------------
+
     register_exception_handlers(app)
 
+    # ------------------------------------------------------------------
     # Core
+    # ------------------------------------------------------------------
+
     app.include_router(
         health_router,
         prefix=settings.API_V1_PREFIX,
     )
 
+    # ------------------------------------------------------------------
     # Authentication
+    # ------------------------------------------------------------------
+
     app.include_router(
         auth_router,
         prefix=settings.API_V1_PREFIX,
     )
 
+    # ------------------------------------------------------------------
     # Profiles
+    # ------------------------------------------------------------------
+
     app.include_router(
         profiles_router,
         prefix=settings.API_V1_PREFIX,
     )
 
+    # ------------------------------------------------------------------
+    # Wardrobe Categories
+    # ------------------------------------------------------------------
+
+    app.include_router(
+        wardrobe_category_router,
+        prefix=settings.API_V1_PREFIX,
+    )
+
+    # ------------------------------------------------------------------
     # Wardrobe
+    # ------------------------------------------------------------------
+
     app.include_router(
         wardrobe_router,
         prefix=settings.API_V1_PREFIX,
+    )
+
+    # ------------------------------------------------------------------
+    # Wardrobe Images
+    # ------------------------------------------------------------------
+
+    app.include_router(
+        wardrobe_image_router,
+        prefix=settings.API_V1_PREFIX,
+    )
+
+    # ------------------------------------------------------------------
+    # Static File Serving
+    # ------------------------------------------------------------------
+
+    os.makedirs("uploads/wardrobe", exist_ok=True)
+
+    app.mount(
+        "/uploads",
+        StaticFiles(directory="uploads"),
+        name="uploads",
     )
 
     return app

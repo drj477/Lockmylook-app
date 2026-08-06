@@ -11,11 +11,15 @@ class WardrobeCategory(SQLModel, table=True):
 
     name: str = Field(index=True, unique=True, nullable=False)
 
+    is_system: bool = Field(default=False)
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
-    items: list["WardrobeItem"] = Relationship(back_populates="category")
+    items: list["WardrobeItem"] = Relationship(
+        back_populates="category"
+    )
 
 
 class WardrobeItem(SQLModel, table=True):
@@ -37,7 +41,10 @@ class WardrobeItem(SQLModel, table=True):
 
     name: str = Field(max_length=100)
 
-    brand: str | None = Field(default=None, max_length=100)
+    brand: str | None = Field(
+        default=None,
+        max_length=100,
+    )
 
     primary_color: str | None = None
 
@@ -59,7 +66,9 @@ class WardrobeItem(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
-    category: WardrobeCategory = Relationship(back_populates="items")
+    category: WardrobeCategory = Relationship(
+        back_populates="items"
+    )
 
     images: list["WardrobeImage"] = Relationship(
         back_populates="item"
@@ -87,4 +96,6 @@ class WardrobeImage(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
-    item: WardrobeItem = Relationship(back_populates="images")
+    item: WardrobeItem = Relationship(
+        back_populates="images"
+    )
