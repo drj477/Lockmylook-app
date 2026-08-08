@@ -9,6 +9,7 @@ import 'package:mobile/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:mobile/features/splash/presentation/screens/splash_screen.dart';
 import 'package:mobile/features/profiles/presentation/screens/profiles_screen.dart';
+import 'package:mobile/features/wardrobe/presentation/screens/wardrobe_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -52,6 +53,23 @@ class AppRouter {
         path: AppRoutes.profiles,
         name: 'profiles',
         builder: (_, _) => const ProfilesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.wardrobe,
+        name: 'wardrobe',
+        builder: (context, state) {
+          final profileId = state.extra as String?;
+
+          if (profileId == null || profileId.isEmpty) {
+            return const Scaffold(
+              body: Center(
+                child: Text('A profile is required to view a wardrobe.'),
+              ),
+            );
+          }
+
+          return WardrobeScreen(profileId: profileId);
+        },
       ),
     ],
     errorBuilder: (_, state) => Scaffold(

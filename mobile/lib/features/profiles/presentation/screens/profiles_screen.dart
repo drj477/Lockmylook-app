@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:mobile/app/routes.dart';
 import 'package:mobile/features/profiles/application/profile_controller.dart';
 import 'package:mobile/features/profiles/application/profile_providers.dart';
 
@@ -52,6 +54,10 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
 
   Future<void> _deleteProfile(String profileId) async {
     await ref.read(profileControllerProvider.notifier).deleteProfile(profileId);
+  }
+
+  void _openWardrobe(String profileId) {
+    context.push(AppRoutes.wardrobe, extra: profileId);
   }
 
   @override
@@ -154,6 +160,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
             ),
             title: Text(profile.name),
             subtitle: Text(profile.id),
+            onTap: () => _openWardrobe(profile.id),
             trailing: IconButton(
               tooltip: 'Delete profile',
               icon: const Icon(Icons.delete_outline),
