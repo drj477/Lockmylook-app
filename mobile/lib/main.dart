@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:mobile/app/bootstrap.dart';
 
-import 'app/app.dart';
-
-void main() {
-  runApp(const LockMyLookApp());
+Future<void> main() async {
+  await bootstrap();
 }

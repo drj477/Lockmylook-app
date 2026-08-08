@@ -1,0 +1,45 @@
+import 'package:mobile/core/network/api_client.dart';
+import 'package:mobile/core/network/api_endpoints.dart';
+import 'package:mobile/features/profiles/data/models/profile_models.dart';
+
+class ProfileApi {
+  ProfileApi(this._apiClient);
+
+  final ApiClient _apiClient;
+
+  Future<List<Profile>> listProfiles() async {
+    final response = await _apiClient.get(ApiEndpoints.profiles);
+
+    final data = response.data as Map<String, dynamic>;
+    final profiles = data['data'] as List<dynamic>;
+
+    return profiles
+        .map((item) => Profile.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Profile> createProfile(ProfileCreateRequest request) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.profiles,
+      data: request.toJson(),
+    );
+
+    final data = response.data as Map<String, dynamic>;
+
+    return Profile.fromJson(data['data'] as Map<String, dynamic>);
+  }
+
+  Future<Profile> getProfile(String profileId) async {
+    final response = await _apiClient.get(
+      '${ApiEndpoints.profiles}/$profileId',
+    );
+
+    final data = response.data as Map<String, dynamic>;
+
+    return Profile.fromJson(data['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> deleteProfile(String profileId) async {
+    await _apiClient.delete('${ApiEndpoints.profiles}/$profileId');
+  }
+}
