@@ -5,6 +5,7 @@ import 'package:mobile/features/wardrobe/application/wardrobe_controller.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 import 'package:mobile/features/wardrobe/presentation/screens/add_wardrobe_item_screen.dart';
+import 'package:mobile/features/wardrobe/presentation/screens/edit_wardrobe_item_screen.dart';
 
 class WardrobeScreen extends ConsumerStatefulWidget {
   const WardrobeScreen({required this.profileId, super.key});
@@ -42,6 +43,24 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
       return;
     }
 
+    await _refresh();
+  }
+
+  Future<void> _openEditItem(WardrobeItem item) async {
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            EditWardrobeItemScreen(profileId: widget.profileId, item: item),
+      ),
+    );
+
+    if (!mounted || updated != true) {
+      return;
+    }
+
+    // The controller already updates its local state after PATCH.
+    // Refreshing here ensures the screen reflects the backend
+    // as the source of truth.
     await _refresh();
   }
 
@@ -138,6 +157,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
 
           return Card(
             child: ListTile(
+              onTap: () => _openEditItem(item),
               leading: CircleAvatar(
                 child: Text(
                   item.name.isEmpty ? '?' : item.name[0].toUpperCase(),
