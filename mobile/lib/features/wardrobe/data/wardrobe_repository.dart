@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 import 'package:mobile/features/wardrobe/data/wardrobe_api.dart';
 
@@ -33,6 +35,18 @@ class WardrobeRepository {
       profileId: profileId,
       itemId: itemId,
       request: request,
+    );
+  }
+
+  Future<Map<String, dynamic>> uploadImage({
+    required String profileId,
+    required String itemId,
+    required File file,
+  }) {
+    return _api.uploadImage(
+      profileId: profileId,
+      itemId: itemId,
+      file: file,
     );
   }
 
