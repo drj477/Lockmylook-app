@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mobile/app/routes.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
-import 'package:mobile/features/profiles/application/profile_controller.dart';
 import 'package:mobile/features/profiles/application/profile_providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -64,6 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final profileState = ref.watch(profileControllerProvider);
     final name = profileState.profiles.isEmpty ? 'there' : profileState.profiles.first.name;
+    const recentNames = ['Black Tee', 'White Hoodie', 'Denim', 'Linen', 'Sneakers'];
 
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
@@ -74,14 +74,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
             children: [
-              Row(children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Hi, ${name == 'there' ? 'there' : name} 👋', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: LockMyLookUi.ink)),
-                  const SizedBox(height: 4),
-                  const Text('Ready to style your day?', style: TextStyle(color: LockMyLookUi.muted, fontSize: 13)),
-                ])),
-                Container(width: 48, height: 48, decoration: BoxDecoration(color: LockMyLookUi.navy, borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.person_outline, color: Colors.white)),
-              ]),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Hi, ${name == 'there' ? 'there' : name} 👋', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: LockMyLookUi.ink)),
+                        const SizedBox(height: 4),
+                        const Text('Ready to style your day?', style: TextStyle(color: LockMyLookUi.muted, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  Container(width: 48, height: 48, decoration: BoxDecoration(color: LockMyLookUi.navy, borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.person_outline, color: Colors.white)),
+                ],
+              ),
               const SizedBox(height: 24),
               LockMyLookUi.sectionTitle('My Profiles', action: 'Manage', onAction: () => context.push(AppRoutes.profiles)),
               const SizedBox(height: 10),
@@ -106,28 +113,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFEDF2FF), Color(0xFFFFE9E6)]), borderRadius: BorderRadius.circular(22)),
-                child: Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Row(children: [Icon(Icons.auto_awesome, color: LockMyLookUi.coral, size: 19), SizedBox(width: 7), Text('AI Outfit Suggestions', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: LockMyLookUi.ink))]),
-                    const SizedBox(height: 8),
-                    const Text('Get 5 best outfit ideas for your occasion and mood.', style: TextStyle(color: LockMyLookUi.muted, height: 1.35)),
-                    const SizedBox(height: 14),
-                    ElevatedButton(onPressed: _openOutfits, child: const Text('Get Started')),
-                  ])),
-                  const SizedBox(width: 12),
-                  Container(width: 78, height: 105, decoration: BoxDecoration(color: Colors.white.withAlpha(190), borderRadius: BorderRadius.circular(22)), child: const Icon(Icons.style_outlined, size: 44, color: LockMyLookUi.navy)),
-                ]),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(children: [Icon(Icons.auto_awesome, color: LockMyLookUi.coral, size: 19), SizedBox(width: 7), Text('AI Outfit Suggestions', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: LockMyLookUi.ink))]),
+                          const SizedBox(height: 8),
+                          const Text('Get 5 best outfit ideas for your occasion and mood.', style: TextStyle(color: LockMyLookUi.muted, height: 1.35)),
+                          const SizedBox(height: 14),
+                          ElevatedButton(onPressed: _openOutfits, child: const Text('Get Started')),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(width: 78, height: 105, decoration: BoxDecoration(color: Colors.white.withAlpha(190), borderRadius: BorderRadius.circular(22)), child: const Icon(Icons.style_outlined, size: 44, color: LockMyLookUi.navy)),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
-              Row(children: [
-                Expanded(child: _quickCard(icon: Icons.checkroom_outlined, title: 'My Wardrobe', value: 'Your items', onTap: _openWardrobe)),
-                const SizedBox(width: 12),
-                Expanded(child: _quickCard(icon: Icons.auto_awesome_outlined, title: 'Outfits', value: 'Style ideas', onTap: _openOutfits)),
-              ]),
+              Row(children: [Expanded(child: _quickCard(icon: Icons.checkroom_outlined, title: 'My Wardrobe', value: 'Your items', onTap: _openWardrobe)), const SizedBox(width: 12), Expanded(child: _quickCard(icon: Icons.auto_awesome_outlined, title: 'Outfits', value: 'Style ideas', onTap: _openOutfits))]),
               const SizedBox(height: 24),
               LockMyLookUi.sectionTitle('Recent Items', action: 'View All', onAction: _openWardrobe),
               const SizedBox(height: 10),
-              SizedBox(height: 130, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: 5, separatorBuilder: (_, _) => const SizedBox(width: 10), itemBuilder: (_, index) => Container(width: 112, padding: const EdgeInsets.all(8), decoration: LockMyLookUi.cardDecoration(), child: Column(children: [Expanded(child: LockMyLookUi.imagePlaceholder(label: ['Black Tee', 'White Hoodie', 'Denim', 'Linen', 'Sneakers'][index], height: 78)), const SizedBox(height: 6), Text(['Black Tee', 'White Hoodie', 'Denim', 'Linen', 'Sneakers'][index], maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: LockMyLookUi.ink))]))),
+              SizedBox(
+                height: 130,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: recentNames.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (_, index) {
+                    final itemName = recentNames[index];
+                    return Container(
+                      width: 112,
+                      padding: const EdgeInsets.all(8),
+                      decoration: LockMyLookUi.cardDecoration(),
+                      child: Column(
+                        children: [
+                          Expanded(child: LockMyLookUi.imagePlaceholder(label: itemName, height: 78)),
+                          const SizedBox(height: 6),
+                          Text(itemName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: LockMyLookUi.ink)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -139,15 +171,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _profileBubble({required String label, String? initial, IconData? icon, VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(width: 62, child: Column(children: [
-        Container(width: 52, height: 52, decoration: BoxDecoration(color: initial == null ? Colors.white : LockMyLookUi.coralSoft, shape: BoxShape.circle, border: Border.all(color: initial == null ? LockMyLookUi.border : LockMyLookUi.coral, width: 1.5)), child: Center(child: initial != null ? Text(initial, style: const TextStyle(color: LockMyLookUi.coral, fontWeight: FontWeight.w800, fontSize: 18)) : Icon(icon, color: LockMyLookUi.navy, size: 23))),
-        const SizedBox(height: 6),
-        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: LockMyLookUi.ink)),
-      ])),
+      child: SizedBox(
+        width: 62,
+        child: Column(
+          children: [
+            Container(width: 52, height: 52, decoration: BoxDecoration(color: initial == null ? Colors.white : LockMyLookUi.coralSoft, shape: BoxShape.circle, border: Border.all(color: initial == null ? LockMyLookUi.border : LockMyLookUi.coral, width: 1.5)), child: Center(child: initial != null ? Text(initial, style: const TextStyle(color: LockMyLookUi.coral, fontWeight: FontWeight.w800, fontSize: 18)) : Icon(icon, color: LockMyLookUi.navy, size: 23))),
+            const SizedBox(height: 6),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: LockMyLookUi.ink)),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _quickCard({required IconData icon, required String title, required String value, required VoidCallback onTap}) {
-    return GestureDetector(onTap: onTap, child: Container(padding: const EdgeInsets.all(15), decoration: LockMyLookUi.cardDecoration(), child: Row(children: [Container(width: 42, height: 42, decoration: BoxDecoration(color: LockMyLookUi.coralSoft, borderRadius: BorderRadius.circular(13)), child: Icon(icon, color: LockMyLookUi.coral)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: LockMyLookUi.ink)), const SizedBox(height: 3), Text(value, style: const TextStyle(fontSize: 12, color: LockMyLookUi.muted))]))])));
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: LockMyLookUi.cardDecoration(),
+        child: Row(children: [Container(width: 42, height: 42, decoration: BoxDecoration(color: LockMyLookUi.coralSoft, borderRadius: BorderRadius.circular(13)), child: Icon(icon, color: LockMyLookUi.coral)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: LockMyLookUi.ink)), const SizedBox(height: 3), Text(value, style: const TextStyle(fontSize: 12, color: LockMyLookUi.muted))]))]),
+      ),
+    );
   }
 }
