@@ -22,6 +22,7 @@ from app.wardrobe.image_router import (
     router as wardrobe_image_router,
 )
 from app.wardrobe.router import router as wardrobe_router
+from app.outfits.router import router as outfits_router
 
 
 @asynccontextmanager
@@ -119,6 +120,15 @@ def create_app() -> FastAPI:
 
     app.include_router(
         wardrobe_image_router,
+        prefix=settings.API_V1_PREFIX,
+    )
+
+    # ------------------------------------------------------------------
+    # Outfits
+    # ------------------------------------------------------------------
+
+    app.include_router(
+        outfits_router,
         prefix=settings.API_V1_PREFIX,
     )
 
