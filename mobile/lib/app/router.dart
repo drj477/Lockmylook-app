@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:mobile/app/routes.dart';
-
 import 'package:mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/register_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:mobile/features/home/presentation/screens/home_screen.dart';
-import 'package:mobile/features/splash/presentation/screens/splash_screen.dart';
+import 'package:mobile/features/outfits/presentation/screens/outfit_builder_screen.dart';
 import 'package:mobile/features/profiles/presentation/screens/profiles_screen.dart';
+import 'package:mobile/features/splash/presentation/screens/splash_screen.dart';
 import 'package:mobile/features/wardrobe/presentation/screens/wardrobe_screen.dart';
 
 class AppRouter {
@@ -18,11 +18,8 @@ class AppRouter {
 
   static final router = GoRouter(
     navigatorKey: navigatorKey,
-
     initialLocation: AppRoutes.splash,
-
     debugLogDiagnostics: true,
-
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -69,6 +66,23 @@ class AppRouter {
           }
 
           return WardrobeScreen(profileId: profileId);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.outfits,
+        name: 'outfits',
+        builder: (context, state) {
+          final profileId = state.extra as String?;
+
+          if (profileId == null || profileId.isEmpty) {
+            return const Scaffold(
+              body: Center(
+                child: Text('A profile is required to build an outfit.'),
+              ),
+            );
+          }
+
+          return OutfitBuilderScreen(profileId: profileId);
         },
       ),
     ],
