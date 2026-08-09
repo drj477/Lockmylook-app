@@ -46,6 +46,11 @@ dependencies:
   # --------------------------------------------------
   google_fonts: ^8.2.1
 
+  # --------------------------------------------------
+  # Media
+  # --------------------------------------------------
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -57,9 +62,6 @@ dev_dependencies:
   # --------------------------------------------------
   build_runner: 2.15.1
   riverpod_generator: 4.0.4
-
-
-  image_picker: ^1.1.2
 
 flutter:
   uses-material-design: true
