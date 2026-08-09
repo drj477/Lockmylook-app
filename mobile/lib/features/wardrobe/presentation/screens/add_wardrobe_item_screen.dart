@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:mobile/features/wardrobe/application/wardrobe_controller.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
@@ -15,8 +18,10 @@ class AddWardrobeItemScreen extends ConsumerStatefulWidget {
       _AddWardrobeItemScreenState();
 }
 
-class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
+class _AddWardrobeItemScreenState
+    extends ConsumerState<AddWardrobeItemScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
 
   final _nameController = TextEditingController();
   final _brandController = TextEditingController();
@@ -27,11 +32,11 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
   String? _categoryId;
   bool _loadingCategories = true;
+  File? _selectedImage;
 
   @override
   void initState() {
     super.initState();
-
     Future.microtask(_loadCategories);
   }
 
@@ -66,8 +71,73 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     });
   }
 
+  Future<void> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Take a photo'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 90,
+        maxWidth: 1800,
+        maxHeight: 1800,
+      );
+
+      if (!mounted || picked == null) {
+        return;
+      }
+
+      setState(() {
+        _selectedImage = File(picked.path);
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not select image: $error')),
+      );
+    }
+  }
+
   Future<void> _createItem() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final image = _selectedImage;
+
+    if (image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add a photo of this item.')),
+      );
       return;
     }
 
@@ -92,7 +162,11 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
     final success = await ref
         .read(wardrobeControllerProvider.notifier)
-        .createItem(profileId: widget.profileId, request: request);
+        .createItemWithImage(
+          profileId: widget.profileId,
+          request: request,
+          imageFile: image,
+        );
 
     if (!mounted) {
       return;
@@ -114,7 +188,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
   String? _optionalValue(TextEditingController controller) {
     final value = controller.text.trim();
-
     return value.isEmpty ? null : value;
   }
 
@@ -122,7 +195,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(wardrobeControllerProvider);
     final categories = state.categories;
-
     final creating = state.status == WardrobeStatus.loading;
 
     return Scaffold(
@@ -133,6 +205,8 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              _imageSection(creating),
+              const SizedBox(height: 24),
               DropdownButtonFormField<String>(
                 initialValue: _categoryId,
                 decoration: const InputDecoration(
@@ -158,7 +232,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Select a category';
                   }
-
                   return null;
                 },
               ),
@@ -180,7 +253,6 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
                   if (value == null || value.trim().isEmpty) {
                     return 'Name is required';
                   }
-
                   return null;
                 },
               ),
@@ -254,6 +326,85 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _imageSection(bool disabled) {
+    final image = _selectedImage;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Item photo',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Add a clear photo of the clothing item. This image will be used for Virtual Try-On.',
+          style: TextStyle(color: Colors.black54, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: disabled ? null : _pickImage,
+          child: Container(
+            height: 240,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.black12),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: image == null
+                ? const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_photo_alternate_outlined, size: 48),
+                      SizedBox(height: 10),
+                      Text(
+                        'Add item photo',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      SizedBox(height: 4),
+                      Text('Camera or gallery'),
+                    ],
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.file(image, fit: BoxFit.contain),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Material(
+                          color: Colors.white.withAlpha(235),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            onPressed: disabled
+                                ? null
+                                : () => setState(() {
+                                    _selectedImage = null;
+                                  }),
+                            icon: const Icon(Icons.close),
+                            tooltip: 'Remove image',
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 12,
+                        bottom: 12,
+                        child: FilledButton.tonalIcon(
+                          onPressed: disabled ? null : _pickImage,
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Change'),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
