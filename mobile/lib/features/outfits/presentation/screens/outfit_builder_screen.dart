@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/outfits/application/outfit_providers.dart';
+import 'package:mobile/features/outfits/application/virtual_try_on_providers.dart';
 import 'package:mobile/features/outfits/data/models/outfit_models.dart';
+import 'package:mobile/features/outfits/data/models/virtual_try_on_models.dart';
+import 'package:mobile/features/outfits/presentation/screens/virtual_try_on_result_screen.dart';
+import 'package:mobile/features/profiles/application/profile_providers.dart';
+import 'package:mobile/features/profiles/data/models/profile_models.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 
@@ -22,24 +27,37 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   final DraggableScrollableController _wardrobeSheetController =
       DraggableScrollableController();
 
+  String _category = 'All';
+  Profile? _profile;
+  bool _tryingOn = false;
+
   String _occasion = 'casual';
   String? _season;
   String? _mood;
-  String _category = 'All';
-
   OutfitGenerateResponse? _generated;
   bool _generating = false;
-  String? _error;
 
   @override
   void initState() {
     super.initState();
 
-    Future.microtask(
-      () => ref
+    Future.microtask(() async {
+      await ref
           .read(wardrobeControllerProvider.notifier)
-          .loadItems(widget.profileId),
-    );
+          .loadItems(widget.profileId);
+
+      try {
+        final profile = await ref
+            .read(profileRepositoryProvider)
+            .getProfile(widget.profileId);
+
+        if (mounted) {
+          setState(() => _profile = profile);
+        }
+      } catch (_) {
+        // The wardrobe remains usable if profile loading fails.
+      }
+    });
   }
 
   @override
@@ -50,9 +68,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
 
   void _toggleItem(WardrobeItem item) {
     setState(() {
-      final index = _selectedItems.indexWhere(
-        (selected) => selected.id == item.id,
-      );
+      final index =
+          _selectedItems.indexWhere((selected) => selected.id == item.id);
 
       if (index >= 0) {
         _selectedItems.removeAt(index);
@@ -63,15 +80,21 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   void _clearSelection() {
-    setState(() {
-      _selectedItems.clear();
-    });
+    setState(() => _selectedItems.clear());
+  }
+
+  Future<void> _openWardrobe() async {
+    if (!_wardrobeSheetController.isAttached) return;
+
+    await _wardrobeSheetController.animateTo(
+      0.72,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _collapseWardrobe() async {
-    if (!_wardrobeSheetController.isAttached) {
-      return;
-    }
+    if (!_wardrobeSheetController.isAttached) return;
 
     await _wardrobeSheetController.animateTo(
       0.17,
@@ -80,7 +103,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     );
   }
 
-  void _tryOnOutfit() {
+  Future<void> _tryOnOutfit() async {
     if (_selectedItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -90,20 +113,124 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       return;
     }
 
-    // The actual virtual try-on service will be connected separately.
-    // This keeps the interaction ready without pretending an AI result exists.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Your outfit is ready for Virtual Try-On.'),
-      ),
+    if (_profile?.avatarUrl == null || _profile!.avatarUrl!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Add a profile image first. Virtual Try-On uses your profile image.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_selectedItems.any((item) => item.images.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Every selected wardrobe item needs an image before try-on.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _tryingOn = true);
+    _showProcessingDialog();
+
+    try {
+      final result = await ref.read(virtualTryOnRepositoryProvider).generate(
+            profileId: widget.profileId,
+            request: VirtualTryOnRequest(
+              itemIds: _selectedItems.map((item) => item.id).toList(),
+            ),
+          );
+
+      if (!mounted) return;
+
+      Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _tryingOn = false);
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VirtualTryOnResultScreen(
+            profileId: widget.profileId,
+            result: result,
+            selectedItems: List.unmodifiable(_selectedItems),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      Navigator.of(context, rootNavigator: true).pop();
+      setState(() => _tryingOn = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_cleanError(error)),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  void _showProcessingDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return const AlertDialog(
+          contentPadding: EdgeInsets.fromLTRB(24, 24, 24, 22),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 42,
+                height: 42,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Creating your try-on',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: 7),
+              Text(
+                'We are putting your selected wardrobe pieces on your profile image.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: LockMyLookUi.muted,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _generate() async {
-    setState(() {
-      _generating = true;
-      _error = null;
-    });
+  String _cleanError(Object error) {
+    final message = error.toString();
+
+    if (message.contains('REPLICATE_API_TOKEN')) {
+      return 'Virtual Try-On is not configured on the backend yet.';
+    }
+
+    if (message.contains('profile image')) {
+      return 'Add a profile image before using Virtual Try-On.';
+    }
+
+    return 'Virtual Try-On could not be completed. Please try again.';
+  }
+
+  Future<void> _generateLooks() async {
+    setState(() => _generating = true);
 
     try {
       final result = await ref.read(outfitRepositoryProvider).generateOutfits(
@@ -115,23 +242,21 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
             ),
           );
 
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _generated = result;
         _generating = false;
       });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
 
-      setState(() {
-        _generating = false;
-        _error = error.toString();
-      });
+      await _showSuggestions();
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() => _generating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not generate looks: $error')),
+      );
     }
   }
 
@@ -162,111 +287,107 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       showDragHandle: true,
       backgroundColor: Colors.white,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            8,
-            20,
-            MediaQuery.viewInsetsOf(context).bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Style with AI',
-                style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.w800,
-                  color: LockMyLookUi.ink,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Tell us the vibe and we will build looks from your wardrobe.',
-                style: TextStyle(color: LockMyLookUi.muted),
-              ),
-              const SizedBox(height: 20),
-              DropdownButtonFormField<String>(
-                initialValue: _occasion,
-                decoration: const InputDecoration(labelText: 'Occasion'),
-                items: const [
-                  DropdownMenuItem(value: 'casual', child: Text('Casual')),
-                  DropdownMenuItem(value: 'work', child: Text('Work')),
-                  DropdownMenuItem(value: 'party', child: Text('Party')),
-                  DropdownMenuItem(value: 'date', child: Text('Dinner Date')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setModalState(() => _occasion = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: _season,
-                decoration: const InputDecoration(labelText: 'Season'),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Any season')),
-                  DropdownMenuItem(value: 'summer', child: Text('Summer')),
-                  DropdownMenuItem(value: 'winter', child: Text('Winter')),
-                  DropdownMenuItem(value: 'spring', child: Text('Spring')),
-                  DropdownMenuItem(value: 'autumn', child: Text('Autumn')),
-                ],
-                onChanged: (value) => setModalState(() => _season = value),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: _mood,
-                decoration: const InputDecoration(labelText: 'Mood'),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Any mood')),
-                  DropdownMenuItem(
-                    value: 'minimal',
-                    child: Text('Minimal'),
+        builder: (context, setModalState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              8,
+              20,
+              MediaQuery.viewInsetsOf(context).bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Style with AI',
+                  style: TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    color: LockMyLookUi.ink,
                   ),
-                  DropdownMenuItem(value: 'smart', child: Text('Smart')),
-                  DropdownMenuItem(value: 'bold', child: Text('Bold')),
-                ],
-                onChanged: (value) => setModalState(() => _mood = value),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: _generating
-                    ? null
-                    : () async {
-                        Navigator.pop(sheetContext);
-                        await _generate();
-
-                        if (mounted && _generated != null) {
-                          await _showSuggestions();
-                        }
-                      },
-                icon: const Icon(Icons.auto_awesome),
-                label: const Text('Generate 5 Looks'),
-              ),
-            ],
-          ),
-        ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Build a look from the wardrobe you already own.',
+                  style: TextStyle(color: LockMyLookUi.muted),
+                ),
+                const SizedBox(height: 20),
+                DropdownButtonFormField<String>(
+                  initialValue: _occasion,
+                  decoration: const InputDecoration(labelText: 'Occasion'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'casual',
+                      child: Text('Casual'),
+                    ),
+                    DropdownMenuItem(value: 'work', child: Text('Work')),
+                    DropdownMenuItem(value: 'party', child: Text('Party')),
+                    DropdownMenuItem(value: 'date', child: Text('Dinner Date')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setModalState(() => _occasion = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: _season,
+                  decoration: const InputDecoration(labelText: 'Season'),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Any season')),
+                    DropdownMenuItem(value: 'summer', child: Text('Summer')),
+                    DropdownMenuItem(value: 'winter', child: Text('Winter')),
+                    DropdownMenuItem(value: 'spring', child: Text('Spring')),
+                    DropdownMenuItem(value: 'autumn', child: Text('Autumn')),
+                  ],
+                  onChanged: (value) => setModalState(() => _season = value),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: _mood,
+                  decoration: const InputDecoration(labelText: 'Mood'),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Any mood')),
+                    DropdownMenuItem(
+                      value: 'minimal',
+                      child: Text('Minimal'),
+                    ),
+                    DropdownMenuItem(value: 'smart', child: Text('Smart')),
+                    DropdownMenuItem(value: 'bold', child: Text('Bold')),
+                  ],
+                  onChanged: (value) => setModalState(() => _mood = value),
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: _generating
+                      ? null
+                      : () async {
+                          Navigator.pop(sheetContext);
+                          await _generateLooks();
+                        },
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Generate 5 Looks'),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   Future<void> _showSuggestions() async {
     final generated = _generated;
-
-    if (generated == null) {
-      return;
-    }
+    if (generated == null) return;
 
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: Colors.white,
       builder: (sheetContext) {
-        final suggestions = generated.suggestions;
-
-        if (suggestions.isEmpty) {
+        if (generated.suggestions.isEmpty) {
           return const SafeArea(
             child: Padding(
               padding: EdgeInsets.all(24),
@@ -278,10 +399,10 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
         return SafeArea(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            itemCount: suggestions.length,
+            itemCount: generated.suggestions.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (_, index) {
-              final suggestion = suggestions[index];
+              final suggestion = generated.suggestions[index];
 
               return Container(
                 padding: const EdgeInsets.all(14),
@@ -323,7 +444,6 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(wardrobeControllerProvider);
-
     final items = state.items;
 
     return Scaffold(
@@ -385,6 +505,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   Widget _tryOnPreview() {
+    final avatarUrl = _profile?.avatarUrl;
+
     return Container(
       height: 345,
       decoration: BoxDecoration(
@@ -446,8 +568,18 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                 color: const Color(0xFFF1F2F4),
                 borderRadius: BorderRadius.circular(20),
               ),
+              clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
+                  if (avatarUrl != null && avatarUrl.trim().isNotEmpty)
+                    Positioned.fill(
+                      child: Image.network(
+                        avatarUrl,
+                        fit: BoxFit.cover,
+                        opacity: const AlwaysStoppedAnimation(.16),
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    ),
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -459,23 +591,36 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
-                            Icons.person_outline,
-                            size: 44,
-                            color: Color(0xFF7B8492),
-                          ),
+                          child: avatarUrl != null &&
+                                  avatarUrl.trim().isNotEmpty
+                              ? ClipOval(
+                                  child: Image.network(
+                                    avatarUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => const Icon(
+                                      Icons.person_outline,
+                                      size: 44,
+                                      color: Color(0xFF7B8492),
+                                    ),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person_outline,
+                                  size: 44,
+                                  color: Color(0xFF7B8492),
+                                ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         const Icon(
                           Icons.checkroom_outlined,
-                          size: 92,
+                          size: 84,
                           color: Color(0xFFD6D9DE),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           _selectedItems.isEmpty
                               ? 'Select an outfit to try on'
-                              : 'Your selected outfit',
+                              : 'Your selected outfit is ready',
                           style: const TextStyle(
                             color: LockMyLookUi.muted,
                             fontWeight: FontWeight.w700,
@@ -550,10 +695,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F7F8),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: LockMyLookUi.border,
-                  style: BorderStyle.solid,
-                ),
+                border: Border.all(color: LockMyLookUi.border),
               ),
               child: Column(
                 children: [
@@ -581,15 +723,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    onPressed: () async {
-                      if (_wardrobeSheetController.isAttached) {
-                        await _wardrobeSheetController.animateTo(
-                          0.72,
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOutCubic,
-                        );
-                      }
-                    },
+                    onPressed: _openWardrobe,
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Choose Items'),
                   ),
@@ -605,8 +739,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(right: 2),
                     itemCount: _selectedItems.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (_, index) {
                       final item = _selectedItems[index];
 
@@ -625,9 +758,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                               clipBehavior: Clip.antiAlias,
                               child: Column(
                                 children: [
-                                  Expanded(
-                                    child: _itemImage(item),
-                                  ),
+                                  Expanded(child: _itemImage(item)),
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.fromLTRB(
@@ -642,9 +773,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          _categoryLabel(
-                                            item.category.name,
-                                          ),
+                                          _categoryLabel(item.category.name),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
@@ -697,15 +826,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () async {
-                          if (_wardrobeSheetController.isAttached) {
-                            await _wardrobeSheetController.animateTo(
-                              0.72,
-                              duration: const Duration(milliseconds: 260),
-                              curve: Curves.easeOutCubic,
-                            );
-                          }
-                        },
+                        onPressed: _openWardrobe,
                         icon: const Icon(Icons.add, size: 18),
                         label: const Text('Add More'),
                       ),
@@ -713,10 +834,9 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed:
-                            _selectedItems.isEmpty ? null : _tryOnOutfit,
+                        onPressed: _tryingOn ? null : _tryOnOutfit,
                         icon: const Icon(Icons.person_outline),
-                        label: const Text('Try On'),
+                        label: Text(_tryingOn ? 'Trying On...' : 'Try On'),
                       ),
                     ),
                   ],
@@ -728,15 +848,15 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     );
   }
 
-  Widget _wardrobeSheet(List<WardrobeItem> items) {
+  Widget _wardrobeSheet(List<WardrobeItem> allItems) {
     final categories = <String>{
       'All',
-      ...items.map((item) => item.category.name),
+      ...allItems.map((item) => item.category.name),
     }.toList();
 
-    final filteredItems = _category == 'All'
-        ? items
-        : items
+    final filtered = _category == 'All'
+        ? allItems
+        : allItems
             .where((item) => item.category.name == _category)
             .toList();
 
@@ -746,149 +866,120 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       minChildSize: 0.17,
       maxChildSize: 0.72,
       snap: true,
-      snapAnimationDuration: const Duration(milliseconds: 280),
       snapSizes: const [0.17, 0.72],
-      expand: true,
       builder: (context, scrollController) {
-        return Material(
-          color: Colors.white,
-          elevation: 16,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(26),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (details) {
-                  if (!_wardrobeSheetController.isAttached) {
-                    return;
-                  }
+        return GestureDetector(
+          onVerticalDragUpdate: (details) {
+            final screenHeight = MediaQuery.sizeOf(context).height;
+            final nextSize = _wardrobeSheetController.size -
+                (details.primaryDelta ?? 0) / screenHeight;
 
-                  final screenHeight = MediaQuery.sizeOf(context).height;
-                  final nextSize = _wardrobeSheetController.size -
-                      (details.primaryDelta ?? 0) / screenHeight;
+            _wardrobeSheetController.jumpTo(
+              nextSize.clamp(0.17, 0.72),
+            );
+          },
+          onVerticalDragEnd: (details) async {
+            final velocity = details.primaryVelocity ?? 0;
+            final current = _wardrobeSheetController.size;
 
-                  _wardrobeSheetController.jumpTo(
-                    nextSize.clamp(0.17, 0.72),
-                  );
-                },
-                onVerticalDragEnd: (details) {
-                  if (!_wardrobeSheetController.isAttached) {
-                    return;
-                  }
+            final target = velocity < -350
+                ? 0.72
+                : velocity > 350
+                    ? 0.17
+                    : current >= 0.45
+                        ? 0.72
+                        : 0.17;
 
-                  final velocity = details.primaryVelocity ?? 0;
-                  final current = _wardrobeSheetController.size;
-
-                  final target = velocity < -350
-                      ? 0.72
-                      : velocity > 350
-                          ? 0.17
-                          : current >= 0.45
-                              ? 0.72
-                              : 0.17;
-
-                  _wardrobeSheetController.animateTo(
-                    target,
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
-                  child: Column(
+            await _wardrobeSheetController.animateTo(
+              target,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(26),
+              ),
+              border: Border.all(color: LockMyLookUi.border),
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 18,
+                  offset: Offset(0, -4),
+                  color: Color(0x18000000),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 7, 12, 5),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: _collapseWardrobe,
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(19),
-                              ),
-                              child: const Icon(Icons.close, size: 20),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Your Wardrobe',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: LockMyLookUi.ink,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${items.length} items',
-                            style: const TextStyle(
-                              color: LockMyLookUi.muted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        onPressed: _collapseWardrobe,
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Collapse wardrobe',
                       ),
-                      const SizedBox(height: 6),
-                      GestureDetector(
-                        onTap: () {
-                          if (!_wardrobeSheetController.isAttached) {
-                            return;
-                          }
-
-                          _wardrobeSheetController.animateTo(
-                            _wardrobeSheetController.size >= 0.45
-                                ? 0.17
-                                : 0.72,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeOutCubic,
-                          );
-                        },
-                        child: Container(
-                          width: 38,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD5D8DD),
-                            borderRadius: BorderRadius.circular(4),
+                      const Expanded(
+                        child: Text(
+                          'Your Wardrobe',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: LockMyLookUi.ink,
                           ),
+                        ),
+                      ),
+                      Text(
+                        '${_selectedItems.length} selected',
+                        style: const TextStyle(
+                          color: LockMyLookUi.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: 82,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFAFAFB),
-                          border: Border(
-                            right: BorderSide(
-                              color: LockMyLookUi.border,
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: ListView.builder(
-                          padding: const EdgeInsets.only(
-                            top: 6,
-                            bottom: 24,
-                          ),
+                GestureDetector(
+                  onTap: () async {
+                    if (!_wardrobeSheetController.isAttached) return;
+
+                    final expanded =
+                        _wardrobeSheetController.size >= 0.45;
+
+                    await _wardrobeSheetController.animateTo(
+                      expanded ? 0.17 : 0.72,
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD5D9DE),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 82,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 6, 12),
                           itemCount: categories.length,
-                          itemBuilder: (context, index) {
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 5),
+                          itemBuilder: (_, index) {
                             final category = categories[index];
                             final selected = _category == category;
-                            final categorySelectionCount = category == 'All'
+                            final count = category == 'All'
                                 ? _selectedItems.length
                                 : _selectedItems
                                     .where(
@@ -899,51 +990,36 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
 
                             return GestureDetector(
                               onTap: () {
-                                setState(() {
-                                  _category = category;
-                                });
+                                setState(() => _category = category);
                               },
                               child: AnimatedContainer(
-                                duration:
-                                    const Duration(milliseconds: 160),
-                                margin: const EdgeInsets.only(bottom: 8),
+                                duration: const Duration(milliseconds: 160),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 5,
-                                  vertical: 8,
+                                  vertical: 9,
                                 ),
                                 decoration: BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: selected
-                                          ? LockMyLookUi.coral
-                                          : Colors.transparent,
-                                      width: 4,
-                                    ),
+                                  color: selected
+                                      ? LockMyLookUi.coralSoft
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: selected
+                                        ? LockMyLookUi.coral.withAlpha(90)
+                                        : Colors.transparent,
                                   ),
                                 ),
                                 child: Column(
                                   children: [
-                                    Container(
-                                      width: 46,
-                                      height: 46,
-                                      decoration: BoxDecoration(
-                                        color: selected
-                                            ? const Color(0xFFFFE7E4)
-                                            : const Color(0xFFF1F2F4),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        _categoryIcon(category),
-                                        size: 23,
-                                        color: selected
-                                            ? LockMyLookUi.coral
-                                            : const Color(0xFF7D8490),
-                                      ),
+                                    Icon(
+                                      _categoryIcon(category),
+                                      size: 23,
+                                      color: selected
+                                          ? LockMyLookUi.coral
+                                          : LockMyLookUi.muted,
                                     ),
-                                    const SizedBox(height: 5),
+                                    const SizedBox(height: 4),
                                     Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Flexible(
@@ -952,8 +1028,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                                                 ? 'All'
                                                 : _categoryLabel(category),
                                             maxLines: 2,
-                                            overflow:
-                                                TextOverflow.ellipsis,
+                                            overflow: TextOverflow.ellipsis,
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               fontSize: 10,
@@ -967,10 +1042,11 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                                             ),
                                           ),
                                         ),
-                                        if (categorySelectionCount > 0)
+                                        if (count > 0)
                                           Padding(
-                                            padding:
-                                                const EdgeInsets.only(left: 3),
+                                            padding: const EdgeInsets.only(
+                                              left: 3,
+                                            ),
                                             child: Container(
                                               constraints:
                                                   const BoxConstraints(
@@ -988,7 +1064,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                                                     BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '$categorySelectionCount',
+                                                '$count',
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 8,
@@ -1006,179 +1082,113 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                           },
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          if (_error != null)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  _error!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: LockMyLookUi.coral,
-                                    fontSize: 11,
+                      Expanded(
+                        child: GridView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(6, 4, 12, 20),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 9,
+                            mainAxisSpacing: 9,
+                            childAspectRatio: .76,
+                          ),
+                          itemCount: filtered.length,
+                          itemBuilder: (_, index) {
+                            final item = filtered[index];
+                            final isSelected = _selectedItems.any(
+                              (selected) => selected.id == item.id,
+                            );
+
+                            return GestureDetector(
+                              onTap: () => _toggleItem(item),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF7F7F8),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? LockMyLookUi.coral
+                                        : LockMyLookUi.border,
+                                    width: isSelected ? 2 : 1,
                                   ),
                                 ),
-                              ),
-                            ),
-                          if (_generating)
-                            const LinearProgressIndicator(minHeight: 3),
-                          Expanded(
-                            child: filteredItems.isEmpty
-                                ? const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(20),
-                                      child: Text(
-                                        'No items in this category.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: LockMyLookUi.muted,
+                                clipBehavior: Clip.antiAlias,
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(7),
+                                        child: Column(
+                                          children: [
+                                            Expanded(
+                                              child: _itemImage(item),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                item.name,
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                  )
-                                : GridView.builder(
-                                    controller: scrollController,
-                                    physics:
-                                        const ClampingScrollPhysics(),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      10,
-                                      8,
-                                      12,
-                                      28,
-                                    ),
-                                    gridDelegate:
-                                        const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      crossAxisSpacing: 8,
-                                      mainAxisSpacing: 10,
-                                      childAspectRatio: 0.76,
-                                    ),
-                                    itemCount: filteredItems.length,
-                                    itemBuilder: (context, index) {
-                                      final item = filteredItems[index];
-                                      final selected = _selectedItems.any(
-                                        (selectedItem) =>
-                                            selectedItem.id == item.id,
-                                      );
-
-                                      return GestureDetector(
-                                        onTap: () => _toggleItem(item),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 180,
-                                          ),
-                                          padding: const EdgeInsets.all(5),
-                                          decoration: BoxDecoration(
+                                    if (isSelected)
+                                      const Positioned(
+                                        top: 7,
+                                        right: 7,
+                                        child: CircleAvatar(
+                                          radius: 11,
+                                          backgroundColor:
+                                              LockMyLookUi.coral,
+                                          child: Icon(
+                                            Icons.check,
+                                            size: 14,
                                             color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(15),
-                                            border: Border.all(
-                                              color: selected
-                                                  ? LockMyLookUi.coral
-                                                  : LockMyLookUi.border,
-                                              width: selected ? 2 : 1,
-                                            ),
-                                          ),
-                                          child: Stack(
-                                            children: [
-                                              Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
-                                                children: [
-                                                  Expanded(
-                                                    child: ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                        11,
-                                                      ),
-                                                      child: _itemImage(item),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 5),
-                                                  Text(
-                                                    _categoryLabel(
-                                                      item.category.name,
-                                                    ),
-                                                    textAlign:
-                                                        TextAlign.center,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color:
-                                                          LockMyLookUi.muted,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 2),
-                                                  Text(
-                                                    item.name,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    textAlign:
-                                                        TextAlign.center,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: LockMyLookUi.ink,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 3),
-                                                ],
-                                              ),
-                                              if (selected)
-                                                Positioned(
-                                                  top: 5,
-                                                  right: 5,
-                                                  child: Container(
-                                                    width: 23,
-                                                    height: 23,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                      color:
-                                                          LockMyLookUi.coral,
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.check,
-                                                      size: 15,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
                                           ),
                                         ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  String _categoryLabel(String value) {
-    if (value.isEmpty) {
-      return value;
+  Widget _itemImage(WardrobeItem item) {
+    if (item.images.isNotEmpty) {
+      return Image.network(
+        item.images.first.thumbnailUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) =>
+            LockMyLookUi.imagePlaceholder(label: item.name),
+      );
     }
 
+    return LockMyLookUi.imagePlaceholder(label: item.category.name);
+  }
+
+  String _categoryLabel(String value) {
     return value
         .replaceAll('_', ' ')
         .replaceAll('-', ' ')
@@ -1192,46 +1202,34 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   IconData _categoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'all':
-        return Icons.auto_awesome;
-      case 'tops':
-      case 'top':
-        return Icons.checkroom_outlined;
-      case 'bottoms':
-      case 'bottom':
-        return Icons.straighten_outlined;
-      case 'shoes':
-      case 'footwear':
-        return Icons.directions_walk_outlined;
-      case 'accessories':
-      case 'accessory':
-        return Icons.watch_outlined;
-      case 'outerwear':
-      case 'jackets':
-      case 'jacket':
-        return Icons.layers_outlined;
-      case 'dresses':
-      case 'dress':
-        return Icons.dry_cleaning_outlined;
-      default:
-        return Icons.checkroom_outlined;
-    }
-  }
+    final value = category.toLowerCase();
 
-  Widget _itemImage(WardrobeItem item) {
-    if (item.images.isEmpty) {
-      return LockMyLookUi.imagePlaceholder(
-        label: item.category.name,
-      );
+    if (value == 'all') return Icons.auto_awesome;
+    if (value.contains('top') ||
+        value.contains('shirt') ||
+        value.contains('blouse')) {
+      return Icons.checkroom;
+    }
+    if (value.contains('bottom') ||
+        value.contains('pant') ||
+        value.contains('jean') ||
+        value.contains('skirt') ||
+        value.contains('short')) {
+      return Icons.dry_cleaning_outlined;
+    }
+    if (value.contains('shoe') ||
+        value.contains('foot') ||
+        value.contains('sneaker') ||
+        value.contains('boot')) {
+      return Icons.sports_soccer_outlined;
+    }
+    if (value.contains('access')) return Icons.watch_outlined;
+    if (value.contains('outer') ||
+        value.contains('jacket') ||
+        value.contains('coat')) {
+      return Icons.layers_outlined;
     }
 
-    return Image.network(
-      item.images.first.thumbnailUrl,
-      fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => LockMyLookUi.imagePlaceholder(
-        label: item.category.name,
-      ),
-    );
+    return Icons.checkroom_outlined;
   }
 }
