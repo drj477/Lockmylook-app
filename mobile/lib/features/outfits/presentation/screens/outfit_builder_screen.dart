@@ -4,15 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/outfits/application/outfit_providers.dart';
 import 'package:mobile/features/outfits/data/models/outfit_models.dart';
-import 'package:mobile/features/wardrobe/application/wardrobe_controller.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 
 class OutfitBuilderScreen extends ConsumerStatefulWidget {
   const OutfitBuilderScreen({required this.profileId, super.key});
-
   final String profileId;
-
   @override
   ConsumerState<OutfitBuilderScreen> createState() => _OutfitBuilderScreenState();
 }
@@ -50,17 +47,18 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       _error = null;
     });
     try {
-      final result = await ref.read(outfitRepositoryProvider).generateOutfits(
-        profileId: widget.profileId,
-        request: OutfitGenerateRequest(occasion: _occasion, season: _season, mood: _mood),
-      );
-      if (!mounted) return;
+      final result = await ref.read(outfitRepositoryProvider).generateOutfits(profileId: widget.profileId, request: OutfitGenerateRequest(occasion: _occasion, season: _season, mood: _mood));
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _generated = result;
         _generating = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _generating = false;
         _error = error.toString();
@@ -103,7 +101,11 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                 initialValue: _occasion,
                 decoration: const InputDecoration(labelText: 'Occasion'),
                 items: const [DropdownMenuItem(value: 'casual', child: Text('Casual')), DropdownMenuItem(value: 'work', child: Text('Work')), DropdownMenuItem(value: 'party', child: Text('Party')), DropdownMenuItem(value: 'date', child: Text('Dinner Date'))],
-                onChanged: (value) { if (value != null) setModalState(() => _occasion = value); },
+                onChanged: (value) {
+                  if (value != null) {
+                    setModalState(() => _occasion = value);
+                  }
+                },
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
@@ -120,7 +122,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                 onChanged: (value) => setModalState(() => _mood = value),
               ),
               const SizedBox(height: 20),
-              FilledButton.icon(onPressed: _generating ? null : () async { Navigator.pop(context); await _generate(); if (mounted && _generated != null) await _showSuggestions(); }, icon: const Icon(Icons.auto_awesome), label: const Text('Generate 5 Looks')),
+              FilledButton.icon(onPressed: _generating ? null : () async { Navigator.pop(context); await _generate(); if (mounted && _generated != null) { await _showSuggestions(); } }, icon: const Icon(Icons.auto_awesome), label: const Text('Generate 5 Looks')),
             ],
           ),
         ),
@@ -135,7 +137,9 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       backgroundColor: Colors.white,
       builder: (_) {
         final suggestions = _generated!.suggestions;
-        if (suggestions.isEmpty) return const SafeArea(child: Padding(padding: EdgeInsets.all(24), child: Text('No matching outfits were found.')));
+        if (suggestions.isEmpty) {
+          return const SafeArea(child: Padding(padding: EdgeInsets.all(24), child: Text('No matching outfits were found.')));
+        }
         return SafeArea(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -152,7 +156,10 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   title: Text('Look ${index + 1} · ${suggestion.score.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text(suggestion.reason, maxLines: 2, overflow: TextOverflow.ellipsis),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 15),
-                  onTap: () { _applySuggestion(suggestion); Navigator.pop(context); },
+                  onTap: () {
+                    _applySuggestion(suggestion);
+                    Navigator.pop(context);
+                  },
                 ),
               );
             },
@@ -167,7 +174,6 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     final state = ref.watch(wardrobeControllerProvider);
     final categories = <String>{'All', ...state.items.map((item) => item.category.name)}.toList();
     final items = state.items.where((item) => _category == 'All' || item.category.name == _category).toList();
-
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
       body: SafeArea(
@@ -200,7 +206,6 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
         ]),
       );
     }
-
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       padding: const EdgeInsets.all(14),
@@ -229,7 +234,9 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   Widget _itemImage(WardrobeItem item) {
-    if (item.images.isEmpty) return LockMyLookUi.imagePlaceholder(label: item.category.name);
+    if (item.images.isEmpty) {
+      return LockMyLookUi.imagePlaceholder(label: item.category.name);
+    }
     return Image.network(item.images.first.thumbnailUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => LockMyLookUi.imagePlaceholder(label: item.category.name));
   }
 }
