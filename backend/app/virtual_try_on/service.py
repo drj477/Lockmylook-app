@@ -72,7 +72,7 @@ class VirtualTryOnService:
                 "person_image": human_image,
                 "garment_images": garment_images,
                 "prompt": prompt,
-                "turbo": True,
+                "turbo": len(items) <= 4,
                 "preserve_input_size": True,
             }
         }
