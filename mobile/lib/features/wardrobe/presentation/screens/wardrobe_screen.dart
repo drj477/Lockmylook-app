@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:mobile/app/routes.dart';
+import 'package:mobile/core/constants/api_constants.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_controller.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
@@ -342,14 +343,48 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
 
   Widget _itemImage(WardrobeItem item) {
     if (item.images.isNotEmpty) {
+      final imageUrl = _resolveImageUrl(item.images.first.thumbnailUrl);
+
       return Image.network(
-        item.images.first.thumbnailUrl,
+        imageUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) =>
-            LockMyLookUi.imagePlaceholder(label: item.name),
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Wardrobe image failed: $imageUrl');
+          debugPrint('Image error: $error');
+          return LockMyLookUi.imagePlaceholder(label: item.name);
+        },
       );
     }
     return LockMyLookUi.imagePlaceholder(label: item.category.name);
+  }
+
+  String _resolveImageUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
+      return trimmed;
+    }
+
+    var path = trimmed.replaceAll('\\', '/');
+    if (path.startsWith('./')) {
+      path = path.substring(2);
+    }
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+
+    final base = Uri.parse(ApiConstants.baseUrl);
+    final origin = Uri(
+      scheme: base.scheme,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+    );
+
+    return origin.resolve('/$path').toString();
   }
 
   Widget _empty() {
