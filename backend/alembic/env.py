@@ -7,6 +7,7 @@ from sqlmodel import SQLModel
 from app.auth.model import Account  # noqa: F401
 from app.core.config import get_settings
 from app.profiles.model import Profile  # noqa: F401
+from app.virtual_try_on.model import VirtualTryOnResult  # noqa: F401
 from app.wardrobe.model import (  # noqa: F401
     WardrobeCategory,
     WardrobeImage,
@@ -18,7 +19,6 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Always pull the DB URL from our app settings (.env), never from alembic.ini
 config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
 
 target_metadata = SQLModel.metadata
