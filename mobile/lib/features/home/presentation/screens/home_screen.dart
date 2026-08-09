@@ -36,9 +36,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadHome() async {
-    await ref
-        .read(profileControllerProvider.notifier)
-        .loadProfiles();
+    await ref.read(profileControllerProvider.notifier).loadProfiles();
 
     if (!mounted) {
       return;
@@ -54,8 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadWardrobeAndPick(String profileId) async {
-    if (_loadedProfileId == profileId &&
-        _todayPick.isNotEmpty) {
+    if (_loadedProfileId == profileId && _todayPick.isNotEmpty) {
       return;
     }
 
@@ -66,20 +63,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     try {
-      await ref
-          .read(wardrobeControllerProvider.notifier)
-          .loadItems(profileId);
+      await ref.read(wardrobeControllerProvider.notifier).loadItems(profileId);
 
       if (!mounted) {
         return;
       }
 
-      final wardrobeState =
-          ref.read(wardrobeControllerProvider);
+      final wardrobeState = ref.read(wardrobeControllerProvider);
 
-      await _loadCachedOrCreatePick(
-        wardrobeState.items,
-      );
+      await _loadCachedOrCreatePick(wardrobeState.items);
     } finally {
       if (mounted) {
         setState(() {
@@ -89,9 +81,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _loadCachedOrCreatePick(
-    List<WardrobeItem> items,
-  ) async {
+  Future<void> _loadCachedOrCreatePick(List<WardrobeItem> items) async {
     if (items.isEmpty) {
       setState(() {
         _todayPick = [];
@@ -101,13 +91,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final today = _todayKey();
 
-    final cachedDate = await _storage.read(
-      key: _todayPickDateKey,
-    );
+    final cachedDate = await _storage.read(key: _todayPickDateKey);
 
-    final cachedIdsRaw = await _storage.read(
-      key: _todayPickIdsKey,
-    );
+    final cachedIdsRaw = await _storage.read(key: _todayPickIdsKey);
 
     if (cachedDate == today &&
         cachedIdsRaw != null &&
@@ -136,9 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _createNewTodayPick(items);
   }
 
-  Future<void> _createNewTodayPick(
-    List<WardrobeItem> items,
-  ) async {
+  Future<void> _createNewTodayPick(List<WardrobeItem> items) async {
     if (items.isEmpty) {
       return;
     }
@@ -146,25 +130,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final seed = DateTime.now().millisecondsSinceEpoch;
     final random = Random(seed);
 
-    final selected = _buildLocalOutfit(
-      items,
-      random,
-    );
+    final selected = _buildLocalOutfit(items, random);
 
     if (selected.isEmpty) {
       return;
     }
 
-    await _storage.write(
-      key: _todayPickDateKey,
-      value: _todayKey(),
-    );
+    await _storage.write(key: _todayPickDateKey, value: _todayKey());
 
     await _storage.write(
       key: _todayPickIdsKey,
-      value: selected
-          .map((item) => item.id)
-          .join(','),
+      value: selected.map((item) => item.id).join(','),
     );
 
     if (!mounted) {
@@ -188,8 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final tops = available.where((item) {
-      final category =
-          item.category.name.toLowerCase();
+      final category = item.category.name.toLowerCase();
 
       return category.contains('top') ||
           category.contains('shirt') ||
@@ -200,8 +175,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }).toList();
 
     final bottoms = available.where((item) {
-      final category =
-          item.category.name.toLowerCase();
+      final category = item.category.name.toLowerCase();
 
       return category.contains('bottom') ||
           category.contains('pant') ||
@@ -212,8 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }).toList();
 
     final shoes = available.where((item) {
-      final category =
-          item.category.name.toLowerCase();
+      final category = item.category.name.toLowerCase();
 
       return category.contains('shoe') ||
           category.contains('sneaker') ||
@@ -222,19 +195,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final result = <WardrobeItem>[];
 
-    void addRandomItem(
-      List<WardrobeItem> source,
-    ) {
+    void addRandomItem(List<WardrobeItem> source) {
       if (source.isEmpty) {
         return;
       }
 
-      final item =
-          source[random.nextInt(source.length)];
+      final item = source[random.nextInt(source.length)];
 
-      if (!result.any(
-        (selected) => selected.id == item.id,
-      )) {
+      if (!result.any((selected) => selected.id == item.id)) {
         result.add(item);
       }
     }
@@ -247,9 +215,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       available.shuffle(random);
 
       for (final item in available) {
-        if (!result.any(
-          (selected) => selected.id == item.id,
-        )) {
+        if (!result.any((selected) => selected.id == item.id)) {
           result.add(item);
         }
 
@@ -263,8 +229,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _restyle() async {
-    final items =
-        ref.read(wardrobeControllerProvider).items;
+    final items = ref.read(wardrobeControllerProvider).items;
 
     if (items.isEmpty || _todayPickLoading) {
       return;
@@ -294,12 +259,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   String? get _profileId {
-    final profiles =
-        ref.read(profileControllerProvider).profiles;
+    final profiles = ref.read(profileControllerProvider).profiles;
 
-    return profiles.isEmpty
-        ? null
-        : profiles.first.id;
+    return profiles.isEmpty ? null : profiles.first.id;
   }
 
   void _openWardrobe() {
@@ -310,10 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    context.push(
-      AppRoutes.wardrobe,
-      extra: profileId,
-    );
+    context.push(AppRoutes.wardrobe, extra: profileId);
   }
 
   void _openOutfits() {
@@ -324,10 +283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    context.push(
-      AppRoutes.outfits,
-      extra: profileId,
-    );
+    context.push(AppRoutes.outfits, extra: profileId);
   }
 
   void _nav(int index) {
@@ -348,8 +304,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profileState =
-        ref.watch(profileControllerProvider);
+    final profileState = ref.watch(profileControllerProvider);
 
     final name = profileState.profiles.isEmpty
         ? 'there'
@@ -360,35 +315,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            await ref
-                .read(profileControllerProvider.notifier)
-                .loadProfiles();
+            await ref.read(profileControllerProvider.notifier).loadProfiles();
 
             if (!mounted) {
               return;
             }
 
-            final profiles =
-                ref.read(profileControllerProvider).profiles;
+            final profiles = ref.read(profileControllerProvider).profiles;
 
             if (profiles.isNotEmpty) {
-              await _loadWardrobeAndPick(
-                profiles.first.id,
-              );
+              await _loadWardrobeAndPick(profiles.first.id);
             }
           },
           child: ListView(
-            physics:
-                const AlwaysScrollableScrollPhysics(),
-            padding:
-                const EdgeInsets.fromLTRB(20, 18, 20, 28),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
             children: [
               Row(
                 children: [
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Hi, ${name == 'there' ? 'there' : name} 👋',
@@ -414,8 +361,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     height: 48,
                     decoration: BoxDecoration(
                       color: LockMyLookUi.navy,
-                      borderRadius:
-                          BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
                       Icons.person_outline,
@@ -430,8 +376,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               LockMyLookUi.sectionTitle(
                 'My Profiles',
                 action: 'Manage',
-                onAction: () =>
-                    context.push(AppRoutes.profiles),
+                onAction: () => context.push(AppRoutes.profiles),
               ),
 
               const SizedBox(height: 10),
@@ -442,47 +387,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ? const Center(
                         child: Text(
                           'Create a profile to get started',
-                          style: TextStyle(
-                            color: LockMyLookUi.muted,
-                          ),
+                          style: TextStyle(color: LockMyLookUi.muted),
                         ),
                       )
                     : ListView.separated(
-                        scrollDirection:
-                            Axis.horizontal,
-                        itemCount:
-                            profileState.profiles.length +
-                                1,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(width: 18),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: profileState.profiles.length + 1,
+                        separatorBuilder: (_, _) => const SizedBox(width: 18),
                         itemBuilder: (context, index) {
-                          if (index ==
-                              profileState
-                                  .profiles.length) {
+                          if (index == profileState.profiles.length) {
                             return _profileBubble(
                               label: 'Add',
                               icon: Icons.add,
-                              onTap: () => context.push(
-                                AppRoutes.profiles,
-                              ),
+                              onTap: () => context.push(AppRoutes.profiles),
                             );
                           }
 
-                          final profile =
-                              profileState
-                                  .profiles[index];
+                          final profile = profileState.profiles[index];
 
                           return _profileBubble(
                             label: profile.name,
-                            initial:
-                                profile.name.isEmpty
-                                    ? '?'
-                                    : profile.name[0]
-                                        .toUpperCase(),
+                            initial: profile.name.isEmpty
+                                ? '?'
+                                : profile.name[0].toUpperCase(),
                             onTap: () async {
-                              await _loadWardrobeAndPick(
-                                profile.id,
-                              );
+                              await _loadWardrobeAndPick(profile.id);
 
                               if (mounted) {
                                 setState(() {});
@@ -498,40 +427,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient:
-                      const LinearGradient(
-                    colors: [
-                      Color(0xFFEDF2FF),
-                      Color(0xFFFFE9E6),
-                    ],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEDF2FF), Color(0xFFFFE9E6)],
                   ),
-                  borderRadius:
-                      BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(22),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Row(
                             children: [
                               Icon(
                                 Icons.auto_awesome,
-                                color:
-                                    LockMyLookUi.coral,
+                                color: LockMyLookUi.coral,
                                 size: 19,
                               ),
                               SizedBox(width: 7),
                               Text(
                                 'AI Outfit Suggestions',
                                 style: TextStyle(
-                                  fontWeight:
-                                      FontWeight.w800,
+                                  fontWeight: FontWeight.w800,
                                   fontSize: 16,
-                                  color:
-                                      LockMyLookUi.ink,
+                                  color: LockMyLookUi.ink,
                                 ),
                               ),
                             ],
@@ -540,16 +460,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const Text(
                             'Get 5 best outfit ideas for your occasion and mood.',
                             style: TextStyle(
-                              color:
-                                  LockMyLookUi.muted,
+                              color: LockMyLookUi.muted,
                               height: 1.35,
                             ),
                           ),
                           const SizedBox(height: 14),
                           ElevatedButton(
                             onPressed: _openOutfits,
-                            child:
-                                const Text('Get Started'),
+                            child: const Text('Get Started'),
                           ),
                         ],
                       ),
@@ -559,10 +477,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       width: 78,
                       height: 105,
                       decoration: BoxDecoration(
-                        color:
-                            Colors.white.withAlpha(190),
-                        borderRadius:
-                            BorderRadius.circular(22),
+                        color: Colors.white.withAlpha(190),
+                        borderRadius: BorderRadius.circular(22),
                       ),
                       child: const Icon(
                         Icons.style_outlined,
@@ -592,8 +508,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Expanded(
                     child: _quickCard(
-                      icon:
-                          Icons.checkroom_outlined,
+                      icon: Icons.checkroom_outlined,
                       title: 'My Wardrobe',
                       value: 'Your items',
                       onTap: _openWardrobe,
@@ -602,8 +517,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _quickCard(
-                      icon:
-                          Icons.auto_awesome_outlined,
+                      icon: Icons.auto_awesome_outlined,
                       title: 'Outfits',
                       value: 'Style ideas',
                       onTap: _openOutfits,
@@ -627,32 +541,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar:
-          LmlBottomNav(
-        currentIndex: 0,
-        onTap: _nav,
-      ),
+      bottomNavigationBar: LmlBottomNav(currentIndex: 0, onTap: _nav),
     );
   }
 
   Widget _todayPickCard() {
-    if (_todayPickLoading &&
-        _todayPick.isEmpty) {
+    if (_todayPickLoading && _todayPick.isEmpty) {
       return Container(
         height: 260,
-        decoration:
-            LockMyLookUi.cardDecoration(),
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        decoration: LockMyLookUi.cardDecoration(),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_todayPick.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
-        decoration:
-            LockMyLookUi.cardDecoration(),
+        decoration: LockMyLookUi.cardDecoration(),
         child: Column(
           children: [
             const Icon(
@@ -664,10 +569,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const Text(
               'Add a few wardrobe items to get your first daily pick.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: LockMyLookUi.muted,
-                height: 1.4,
-              ),
+              style: TextStyle(color: LockMyLookUi.muted, height: 1.4),
             ),
             const SizedBox(height: 14),
             ElevatedButton(
@@ -683,8 +585,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(12),
@@ -694,19 +595,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             height: 230,
             child: Row(
               children: [
-                Expanded(
-                  flex: 3,
-                  child: _wardrobeImage(
-                    _todayPick[0],
-                  ),
-                ),
+                Expanded(flex: 3, child: _wardrobeImage(_todayPick[0])),
                 const SizedBox(width: 8),
                 Expanded(
                   flex: 2,
@@ -714,17 +609,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       Expanded(
                         child: _wardrobeImage(
-                          _todayPick.length > 1
-                              ? _todayPick[1]
-                              : _todayPick[0],
+                          _todayPick.length > 1 ? _todayPick[1] : _todayPick[0],
                         ),
                       ),
                       const SizedBox(height: 8),
                       Expanded(
                         child: _wardrobeImage(
-                          _todayPick.length > 2
-                              ? _todayPick[2]
-                              : _todayPick[0],
+                          _todayPick.length > 2 ? _todayPick[2] : _todayPick[0],
                         ),
                       ),
                     ],
@@ -740,8 +631,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Today\'s Look',
@@ -756,8 +646,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       '${_todayPick.length} wardrobe pieces',
                       style: const TextStyle(
                         fontSize: 12,
-                        color:
-                            LockMyLookUi.muted,
+                        color: LockMyLookUi.muted,
                       ),
                     ),
                   ],
@@ -783,14 +672,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : item.images.first.thumbnailUrl;
 
     return ClipRRect(
-      borderRadius:
-          BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         width: double.infinity,
         height: double.infinity,
         color: LockMyLookUi.background,
-        child: imageUrl == null ||
-                imageUrl.isEmpty
+        child: imageUrl == null || imageUrl.isEmpty
             ? Center(
                 child: Icon(
                   Icons.checkroom_outlined,
@@ -801,28 +688,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder:
-                    (_, _, _) {
+                errorBuilder: (_, _, _) {
                   return const Center(
                     child: Icon(
                       Icons.broken_image_outlined,
                       size: 34,
-                      color:
-                          LockMyLookUi.muted,
+                      color: LockMyLookUi.muted,
                     ),
                   );
                 },
-                loadingBuilder:
-                    (context, child, progress) {
+                loadingBuilder: (context, child, progress) {
                   if (progress == null) {
                     return child;
                   }
 
                   return const Center(
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   );
                 },
               ),
@@ -831,67 +712,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _recentItems() {
-    final items =
-        ref.watch(wardrobeControllerProvider).items;
+    final items = ref.watch(wardrobeControllerProvider).items;
 
     if (items.isEmpty) {
       return Container(
         height: 130,
-        decoration:
-            LockMyLookUi.cardDecoration(),
+        decoration: LockMyLookUi.cardDecoration(),
         child: const Center(
           child: Text(
             'No wardrobe items yet.',
-            style: TextStyle(
-              color: LockMyLookUi.muted,
-            ),
+            style: TextStyle(color: LockMyLookUi.muted),
           ),
         ),
       );
     }
 
     final recent = [...items]
-      ..sort(
-        (a, b) => b.createdAt.compareTo(
-          a.createdAt,
-        ),
-      );
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    final visibleItems =
-        recent.take(8).toList();
+    final visibleItems = recent.take(8).toList();
 
     return SizedBox(
       height: 145,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: visibleItems.length,
-        separatorBuilder: (_, _) =>
-            const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           final item = visibleItems[index];
 
           return Container(
             width: 112,
             padding: const EdgeInsets.all(8),
-            decoration:
-                LockMyLookUi.cardDecoration(),
+            decoration: LockMyLookUi.cardDecoration(),
             child: Column(
               children: [
-                Expanded(
-                  child: _recentItemImage(item),
-                ),
+                Expanded(child: _recentItemImage(item)),
                 const SizedBox(height: 6),
                 Text(
                   item.name,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 11,
-                    fontWeight:
-                        FontWeight.w700,
-                    color:
-                        LockMyLookUi.ink,
+                    fontWeight: FontWeight.w700,
+                    color: LockMyLookUi.ink,
                   ),
                 ),
               ],
@@ -907,31 +772,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? null
         : item.images.first.thumbnailUrl;
 
-    if (imageUrl == null ||
-        imageUrl.isEmpty) {
-      return LockMyLookUi.imagePlaceholder(
-        label: item.name,
-        height: 78,
-      );
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return LockMyLookUi.imagePlaceholder(label: item.name, height: 78);
     }
 
     return ClipRRect(
-      borderRadius:
-          BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(12),
       child: Image.network(
         imageUrl,
         width: double.infinity,
         height: double.infinity,
         fit: BoxFit.cover,
-        errorBuilder:
-            (_, _, _) {
-          return LockMyLookUi.imagePlaceholder(
-            label: item.name,
-            height: 78,
-          );
+        errorBuilder: (_, _, _) {
+          return LockMyLookUi.imagePlaceholder(label: item.name, height: 78);
         },
-        loadingBuilder:
-            (context, child, progress) {
+        loadingBuilder: (context, child, progress) {
           if (progress == null) {
             return child;
           }
@@ -940,10 +795,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: SizedBox(
               width: 20,
               height: 20,
-              child:
-                  CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
           );
         },
@@ -967,9 +819,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: initial == null
-                    ? Colors.white
-                    : LockMyLookUi.coralSoft,
+                color: initial == null ? Colors.white : LockMyLookUi.coralSoft,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: initial == null
@@ -983,31 +833,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ? Text(
                         initial,
                         style: const TextStyle(
-                          color:
-                              LockMyLookUi.coral,
-                          fontWeight:
-                              FontWeight.w800,
+                          color: LockMyLookUi.coral,
+                          fontWeight: FontWeight.w800,
                           fontSize: 18,
                         ),
                       )
-                    : Icon(
-                        icon,
-                        color:
-                            LockMyLookUi.navy,
-                        size: 23,
-                      ),
+                    : Icon(icon, color: LockMyLookUi.navy, size: 23),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               label,
               maxLines: 1,
-              overflow:
-                  TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                color: LockMyLookUi.ink,
-              ),
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: LockMyLookUi.ink),
             ),
           ],
         ),
@@ -1025,38 +864,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(15),
-        decoration:
-            LockMyLookUi.cardDecoration(),
+        decoration: LockMyLookUi.cardDecoration(),
         child: Row(
           children: [
             Container(
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color:
-                    LockMyLookUi.coralSoft,
-                borderRadius:
-                    BorderRadius.circular(13),
+                color: LockMyLookUi.coralSoft,
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: Icon(
-                icon,
-                color:
-                    LockMyLookUi.coral,
-              ),
+              child: Icon(icon, color: LockMyLookUi.coral),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     style: const TextStyle(
-                      fontWeight:
-                          FontWeight.w800,
-                      color:
-                          LockMyLookUi.ink,
+                      fontWeight: FontWeight.w800,
+                      color: LockMyLookUi.ink,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -1064,8 +893,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     value,
                     style: const TextStyle(
                       fontSize: 12,
-                      color:
-                          LockMyLookUi.muted,
+                      color: LockMyLookUi.muted,
                     ),
                   ),
                 ],
