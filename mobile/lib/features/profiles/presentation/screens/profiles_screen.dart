@@ -31,9 +31,13 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
 
   Future<void> _createProfile() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      return;
+    }
     final success = await ref.read(profileControllerProvider.notifier).createProfile(name: name);
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     if (success) {
       _nameController.clear();
       FocusScope.of(context).unfocus();
@@ -47,11 +51,15 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
         return;
       case 1:
         final profiles = ref.read(profileControllerProvider).profiles;
-        if (profiles.isNotEmpty) context.push(AppRoutes.wardrobe, extra: profiles.first.id);
+        if (profiles.isNotEmpty) {
+          context.push(AppRoutes.wardrobe, extra: profiles.first.id);
+        }
         return;
       case 2:
         final profiles = ref.read(profileControllerProvider).profiles;
-        if (profiles.isNotEmpty) context.push(AppRoutes.outfits, extra: profiles.first.id);
+        if (profiles.isNotEmpty) {
+          context.push(AppRoutes.outfits, extra: profiles.first.id);
+        }
         return;
       case 3:
         return;
@@ -61,7 +69,6 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profileControllerProvider);
-
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
       body: SafeArea(
