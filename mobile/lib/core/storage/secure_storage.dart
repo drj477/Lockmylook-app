@@ -35,6 +35,48 @@ class SecureStorage {
     ]);
   }
 
+static const String _todayPickDateKey = 'today_pick_date';
+static const String _todayPickIdsKey = 'today_pick_ids';
+static const String _todayPickSeedKey = 'today_pick_seed';
+
+Future<void> saveTodayPick({
+  required String date,
+  required List<String> itemIds,
+  required int seed,
+}) async {
+  await Future.wait([
+    _storage.write(key: _todayPickDateKey, value: date),
+    _storage.write(
+      key: _todayPickIdsKey,
+      value: itemIds.join(','),
+    ),
+    _storage.write(
+      key: _todayPickSeedKey,
+      value: seed.toString(),
+    ),
+  ]);
+}
+
+Future<Map<String, dynamic>?> getTodayPick() async {
+  final date = await _storage.read(key: _todayPickDateKey);
+  final ids = await _storage.read(key: _todayPickIdsKey);
+  final seed = await _storage.read(key: _todayPickSeedKey);
+
+  if (date == null || ids == null || seed == null) {
+    return null;
+  }
+
+  return {
+    'date': date,
+    'itemIds': ids
+        .split(',')
+        .where((id) => id.isNotEmpty)
+        .toList(),
+    'seed': int.tryParse(seed) ?? 0,
+  };
+}
+
+
   Future<void> clearTokens() async {
     await Future.wait([
       _storage.delete(key: _accessTokenKey),
