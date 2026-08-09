@@ -24,6 +24,13 @@ class ApiClient {
     return dio.post(path, data: data, queryParameters: queryParameters);
   }
 
+  Future<Response<dynamic>> postMultipart(
+    String path, {
+    required FormData data,
+  }) {
+    return dio.post(path, data: data);
+  }
+
   Future<Response<dynamic>> put(String path, {dynamic data}) {
     return dio.put(path, data: data);
   }
