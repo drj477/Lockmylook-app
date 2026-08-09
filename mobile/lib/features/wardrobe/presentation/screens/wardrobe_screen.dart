@@ -12,9 +12,7 @@ import 'package:mobile/features/wardrobe/presentation/screens/edit_wardrobe_item
 
 class WardrobeScreen extends ConsumerStatefulWidget {
   const WardrobeScreen({required this.profileId, super.key});
-
   final String profileId;
-
   @override
   ConsumerState<WardrobeScreen> createState() => _WardrobeScreenState();
 }
@@ -39,12 +37,16 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
 
   Future<void> _openAddItem() async {
     final created = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => AddWardrobeItemScreen(profileId: widget.profileId)));
-    if (mounted && created == true) await _refresh();
+    if (mounted && created == true) {
+      await _refresh();
+    }
   }
 
   Future<void> _openEditItem(WardrobeItem item) async {
     final updated = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => EditWardrobeItemScreen(profileId: widget.profileId, item: item)));
-    if (mounted && updated == true) await _refresh();
+    if (mounted && updated == true) {
+      await _refresh();
+    }
   }
 
   Future<void> _toggleFavorite(WardrobeItem item) => ref.read(wardrobeControllerProvider.notifier).toggleFavorite(profileId: widget.profileId, item: item);
@@ -61,7 +63,9 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         ],
       ),
     );
-    if (confirmed == true) await ref.read(wardrobeControllerProvider.notifier).deleteItem(profileId: widget.profileId, itemId: item.id);
+    if (confirmed == true) {
+      await ref.read(wardrobeControllerProvider.notifier).deleteItem(profileId: widget.profileId, itemId: item.id);
+    }
   }
 
   void _nav(int index) {
@@ -89,7 +93,6 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
       final matchesFilter = _filter == 'All' || item.category.name.toLowerCase() == _filter.toLowerCase();
       return matchesSearch && matchesFilter;
     }).toList();
-
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
       body: SafeArea(
@@ -98,14 +101,8 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                sliver: SliverToBoxAdapter(child: _header()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                sliver: SliverToBoxAdapter(child: _search()),
-              ),
+              SliverPadding(padding: const EdgeInsets.fromLTRB(20, 18, 20, 0), sliver: SliverToBoxAdapter(child: _header())),
+              SliverPadding(padding: const EdgeInsets.fromLTRB(20, 18, 20, 0), sliver: SliverToBoxAdapter(child: _search())),
               SliverToBoxAdapter(child: _filters(state.items)),
               if (state.status == WardrobeStatus.loading && state.items.isEmpty)
                 const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
@@ -123,32 +120,17 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: LockMyLookUi.coral,
-        foregroundColor: Colors.white,
-        onPressed: _openAddItem,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: FloatingActionButton(backgroundColor: LockMyLookUi.coral, foregroundColor: Colors.white, onPressed: _openAddItem, child: const Icon(Icons.add)),
       bottomNavigationBar: LmlBottomNav(currentIndex: 1, onTap: _nav),
     );
   }
 
   Widget _header() {
-    return Row(
-      children: [
-        IconButton(onPressed: () => context.go(AppRoutes.home), icon: const Icon(Icons.arrow_back)),
-        const Expanded(child: Text('My Wardrobe', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: LockMyLookUi.ink))),
-        IconButton(onPressed: _openAddItem, icon: const Icon(Icons.add, color: LockMyLookUi.ink)),
-      ],
-    );
+    return Row(children: [IconButton(onPressed: () => context.go(AppRoutes.home), icon: const Icon(Icons.arrow_back)), const Expanded(child: Text('My Wardrobe', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: LockMyLookUi.ink))), IconButton(onPressed: _openAddItem, icon: const Icon(Icons.add, color: LockMyLookUi.ink))]);
   }
 
   Widget _search() {
-    return TextField(
-      controller: _searchController,
-      onChanged: (_) => setState(() {}),
-      decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'Search items...', suffixIcon: IconButton(onPressed: () {}, icon: const Icon(Icons.tune))),
-    );
+    return TextField(controller: _searchController, onChanged: (_) => setState(() {}), decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'Search items...', suffixIcon: IconButton(onPressed: () {}, icon: const Icon(Icons.tune))));
   }
 
   Widget _filters(List<WardrobeItem> items) {
@@ -183,7 +165,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
             const SizedBox(height: 3),
             Text([item.category.name, if ((item.brand ?? '').isNotEmpty) item.brand!].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: LockMyLookUi.muted)),
             const SizedBox(height: 4),
-            Row(children: [Expanded(child: Text(item.primaryColor ?? '—', style: const TextStyle(fontSize: 11, color: LockMyLookUi.muted))), PopupMenuButton<String>(padding: EdgeInsets.zero, iconSize: 20, onSelected: (value) { if (value == 'delete') _deleteItem(item); if (value == 'favorite') _toggleFavorite(item); }, itemBuilder: (_) => [PopupMenuItem(value: 'favorite', child: Text(item.favorite ? 'Remove favorite' : 'Add favorite')), const PopupMenuItem(value: 'delete', child: Text('Delete'))])]),
+            Row(children: [Expanded(child: Text(item.primaryColor ?? '—', style: const TextStyle(fontSize: 11, color: LockMyLookUi.muted))), PopupMenuButton<String>(padding: EdgeInsets.zero, iconSize: 20, onSelected: (value) { if (value == 'delete') { _deleteItem(item); } if (value == 'favorite') { _toggleFavorite(item); } }, itemBuilder: (_) => [PopupMenuItem(value: 'favorite', child: Text(item.favorite ? 'Remove favorite' : 'Add favorite')), const PopupMenuItem(value: 'delete', child: Text('Delete'))])]),
           ],
         ),
       ),
