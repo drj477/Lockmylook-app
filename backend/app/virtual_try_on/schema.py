@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class VirtualTryOnRequest(BaseModel):
-    item_ids: list[UUID] = Field(min_length=1, max_length=11)
+    # The provider recommends up to 6 garments for a clean result.
+    item_ids: list[UUID] = Field(min_length=1, max_length=6)
 
 
 class VirtualTryOnResponse(BaseModel):
