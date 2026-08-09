@@ -14,15 +14,12 @@ from app.core.health import router as health_router
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIDMiddleware
 from app.database import session as db_session
-from app.profiles.router import router as profiles_router
-from app.wardrobe.category_router import (
-    router as wardrobe_category_router,
-)
-from app.wardrobe.image_router import (
-    router as wardrobe_image_router,
-)
-from app.wardrobe.router import router as wardrobe_router
 from app.outfits.router import router as outfits_router
+from app.profiles.router import router as profiles_router
+from app.virtual_try_on.router import router as virtual_try_on_router
+from app.wardrobe.category_router import router as wardrobe_category_router
+from app.wardrobe.image_router import router as wardrobe_image_router
+from app.wardrobe.router import router as wardrobe_router
 
 
 @asynccontextmanager
@@ -53,90 +50,30 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.APP_NAME,
-        version="0.2.0",
+        version="0.3.0",
         lifespan=lifespan,
     )
 
-    # ------------------------------------------------------------------
-    # Middleware
-    # ------------------------------------------------------------------
-
     app.add_middleware(RequestIDMiddleware)
-
-    # ------------------------------------------------------------------
-    # Exception Handlers
-    # ------------------------------------------------------------------
-
     register_exception_handlers(app)
 
-    # ------------------------------------------------------------------
-    # Core
-    # ------------------------------------------------------------------
-
-    app.include_router(
-        health_router,
-        prefix=settings.API_V1_PREFIX,
-    )
-
-    # ------------------------------------------------------------------
-    # Authentication
-    # ------------------------------------------------------------------
-
-    app.include_router(
-        auth_router,
-        prefix=settings.API_V1_PREFIX,
-    )
-
-    # ------------------------------------------------------------------
-    # Profiles
-    # ------------------------------------------------------------------
-
-    app.include_router(
-        profiles_router,
-        prefix=settings.API_V1_PREFIX,
-    )
-
-    # ------------------------------------------------------------------
-    # Wardrobe Categories
-    # ------------------------------------------------------------------
-
+    app.include_router(health_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(profiles_router, prefix=settings.API_V1_PREFIX)
     app.include_router(
         wardrobe_category_router,
         prefix=settings.API_V1_PREFIX,
     )
-
-    # ------------------------------------------------------------------
-    # Wardrobe
-    # ------------------------------------------------------------------
-
+    app.include_router(wardrobe_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(wardrobe_image_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(outfits_router, prefix=settings.API_V1_PREFIX)
     app.include_router(
-        wardrobe_router,
+        virtual_try_on_router,
         prefix=settings.API_V1_PREFIX,
     )
-
-    # ------------------------------------------------------------------
-    # Wardrobe Images
-    # ------------------------------------------------------------------
-
-    app.include_router(
-        wardrobe_image_router,
-        prefix=settings.API_V1_PREFIX,
-    )
-
-    # ------------------------------------------------------------------
-    # Outfits
-    # ------------------------------------------------------------------
-
-    app.include_router(
-        outfits_router,
-        prefix=settings.API_V1_PREFIX,
-    )
-
-    # ------------------------------------------------------------------
-    # Static File Serving
-    # ------------------------------------------------------------------
 
     os.makedirs("uploads/wardrobe", exist_ok=True)
+    os.makedirs("uploads/tryon", exist_ok=True)
 
     app.mount(
         "/uploads",
