@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
@@ -113,6 +115,66 @@ class WardrobeController extends Notifier<WardrobeState> {
 
       return true;
     } catch (error) {
+      state = state.copyWith(
+        status: WardrobeStatus.error,
+        errorMessage: _messageFromError(error),
+      );
+
+      return false;
+    }
+  }
+
+  Future<bool> createItemWithImage({
+    required String profileId,
+    required WardrobeCreateRequest request,
+    required File imageFile,
+  }) async {
+    state = state.copyWith(
+      status: WardrobeStatus.loading,
+      profileId: profileId,
+      clearError: true,
+    );
+
+    String? createdItemId;
+
+    try {
+      final item = await _repository.createItem(
+        profileId: profileId,
+        request: request,
+      );
+      createdItemId = item.id;
+
+      await _repository.uploadImage(
+        profileId: profileId,
+        itemId: item.id,
+        file: imageFile,
+      );
+
+      final refreshedItem = await _repository.getItem(
+        profileId: profileId,
+        itemId: item.id,
+      );
+
+      state = WardrobeState(
+        status: WardrobeStatus.loaded,
+        items: [...state.items, refreshedItem],
+        categories: state.categories,
+        profileId: profileId,
+      );
+
+      return true;
+    } catch (error) {
+      if (createdItemId != null) {
+        try {
+          await _repository.deleteItem(
+            profileId: profileId,
+            itemId: createdItemId,
+          );
+        } catch (_) {
+          // Keep the original upload/create error for the user.
+        }
+      }
+
       state = state.copyWith(
         status: WardrobeStatus.error,
         errorMessage: _messageFromError(error),
