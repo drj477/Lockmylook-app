@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # App
     APP_NAME: str = "LockMyLook"
-    ENVIRONMENT: str = "development"  # development | production
+    ENVIRONMENT: str = "development"
     API_V1_PREFIX: str = "/api/v1"
 
     # Database
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # Virtual Try-On
+    REPLICATE_API_TOKEN: str = ""
 
     # Logging
     LOG_LEVEL: str = "INFO"
