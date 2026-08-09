@@ -19,7 +19,7 @@ class DioClient {
           },
         ),
       ) {
-    dio.interceptors.add(AuthInterceptor(secureStorage));
+    dio.interceptors.add(AuthInterceptor(secureStorage, dio));
 
     dio.interceptors.add(
       PrettyDioLogger(

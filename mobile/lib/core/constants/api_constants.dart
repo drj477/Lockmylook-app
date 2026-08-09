@@ -4,7 +4,7 @@ abstract final class ApiConstants {
   /// Backend URL
   ///
   /// Android Emulator -> host machine
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+  static const String baseUrl = 'http://192.168.31.25:8000/api/v1';
 
   /// Connection timeout
   static const Duration connectTimeout = Duration(seconds: 15);
