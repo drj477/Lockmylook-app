@@ -10,9 +10,6 @@ class OutfitRepository {
     required String profileId,
     required OutfitGenerateRequest request,
   }) {
-    return _api.generateOutfits(
-      profileId: profileId,
-      request: request,
-    );
+    return _api.generateOutfits(profileId: profileId, request: request);
   }
 }

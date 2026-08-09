@@ -14,12 +14,11 @@ final outfitRepositoryProvider = Provider<OutfitRepository>((ref) {
 });
 
 final outfitGenerationProvider =
-    FutureProvider.family<OutfitGenerateResponse, ({
-      String profileId,
-      OutfitGenerateRequest request,
-    })>((ref, args) {
-  return ref.watch(outfitRepositoryProvider).generateOutfits(
-        profileId: args.profileId,
-        request: args.request,
-      );
-});
+    FutureProvider.family<
+      OutfitGenerateResponse,
+      ({String profileId, OutfitGenerateRequest request})
+    >((ref, args) {
+      return ref
+          .watch(outfitRepositoryProvider)
+          .generateOutfits(profileId: args.profileId, request: args.request);
+    });

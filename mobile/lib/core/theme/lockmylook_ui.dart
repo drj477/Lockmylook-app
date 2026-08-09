@@ -32,13 +32,21 @@ abstract final class LockMyLookUi {
     );
   }
 
-  static Widget sectionTitle(String title, {String? action, VoidCallback? onAction}) {
+  static Widget sectionTitle(
+    String title, {
+    String? action,
+    VoidCallback? onAction,
+  }) {
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(color: ink, fontSize: 18, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              color: ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         if (action != null)
@@ -70,18 +78,32 @@ abstract final class LockMyLookUi {
     );
   }
 
-  static Widget imagePlaceholder({required String label, IconData icon = Icons.checkroom_outlined, double? height}) {
+  static Widget imagePlaceholder({
+    required String label,
+    IconData icon = Icons.checkroom_outlined,
+    double? height,
+  }) {
     return Container(
       height: height,
       width: double.infinity,
-      decoration: BoxDecoration(color: const Color(0xFFF0F1F3), borderRadius: BorderRadius.circular(radiusSm)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F1F3),
+        borderRadius: BorderRadius.circular(radiusSm),
+      ),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 42, color: const Color(0xFF7D8490)),
             const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: muted, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -90,7 +112,11 @@ abstract final class LockMyLookUi {
 }
 
 class LmlBottomNav extends StatelessWidget {
-  const LmlBottomNav({required this.currentIndex, required this.onTap, super.key});
+  const LmlBottomNav({
+    required this.currentIndex,
+    required this.onTap,
+    super.key,
+  });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -104,10 +130,26 @@ class LmlBottomNav extends StatelessWidget {
       backgroundColor: Colors.white,
       indicatorColor: LockMyLookUi.coralSoft,
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-        NavigationDestination(icon: Icon(Icons.checkroom_outlined), selectedIcon: Icon(Icons.checkroom), label: 'Wardrobe'),
-        NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Style AI'),
-        NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Profile'),
+        NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.checkroom_outlined),
+          selectedIcon: Icon(Icons.checkroom),
+          label: 'Wardrobe',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.auto_awesome_outlined),
+          selectedIcon: Icon(Icons.auto_awesome),
+          label: 'Style AI',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          label: 'Profile',
+        ),
       ],
     );
   }

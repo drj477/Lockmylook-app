@@ -106,9 +106,7 @@ class OutfitGenerateResponse {
       mood: json['mood'] as String?,
       suggestions: rawSuggestions
           .map(
-            (item) => OutfitSuggestion.fromJson(
-              item as Map<String, dynamic>,
-            ),
+            (item) => OutfitSuggestion.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
     );
