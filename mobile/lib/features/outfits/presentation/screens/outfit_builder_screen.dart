@@ -74,7 +74,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     }
 
     await _wardrobeSheetController.animateTo(
-      0.19,
+      0.17,
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOutCubic,
     );
@@ -324,17 +324,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(wardrobeControllerProvider);
 
-    final categories = <String>{
-      'All',
-      ...state.items.map((item) => item.category.name),
-    }.toList();
-
-    final items = state.items
-        .where(
-          (item) =>
-              _category == 'All' || item.category.name == _category,
-        )
-        .toList();
+    final items = state.items;
 
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
@@ -344,7 +334,6 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
             Column(
               children: [
                 _header(),
-                _categoryBar(categories),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 180),
@@ -395,35 +384,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     );
   }
 
-  Widget _categoryBar(List<String> categories) {
-    return SizedBox(
-      height: 50,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 6,
-        ),
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (_, index) {
-          final category = categories[index];
-
-          return GestureDetector(
-            onTap: () => setState(() => _category = category),
-            child: LockMyLookUi.pill(
-              category,
-              selected: _category == category,
-            ),
-          );
-        },
-      ),
-    );
-  }
-
   Widget _tryOnPreview() {
-    final hasSelection = _selectedItems.isNotEmpty;
-
     return Container(
       height: 345,
       decoration: BoxDecoration(
@@ -485,53 +446,45 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                 color: const Color(0xFFF1F2F4),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 74,
-                      height: 74,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person_outline,
-                        size: 44,
-                        color: Color(0xFF7B8492),
-                      ),
+              child: Stack(
+                children: [
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 74,
+                          height: 74,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.person_outline,
+                            size: 44,
+                            color: Color(0xFF7B8492),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Icon(
+                          Icons.checkroom_outlined,
+                          size: 92,
+                          color: Color(0xFFD6D9DE),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _selectedItems.isEmpty
+                              ? 'Select an outfit to try on'
+                              : 'Your selected outfit',
+                          style: const TextStyle(
+                            color: LockMyLookUi.muted,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    const Icon(
-                      Icons.checkroom_outlined,
-                      size: 92,
-                      color: Color(0xFFD6D9DE),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      hasSelection
-                          ? 'Your selected outfit is ready'
-                          : 'Select an outfit to try on',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: LockMyLookUi.muted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      hasSelection
-                          ? 'Use Try On below your selected pieces.'
-                          : 'Choose pieces from your wardrobe below.',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: LockMyLookUi.muted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -541,6 +494,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   Widget _selectedOutfit() {
+    final selectedCount = _selectedItems.length;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
@@ -562,8 +517,20 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   ),
                 ),
               ),
+              if (selectedCount > 0)
+                TextButton(
+                  onPressed: _clearSelection,
+                  style: TextButton.styleFrom(
+                    foregroundColor: LockMyLookUi.coral,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Clear'),
+                ),
+              const SizedBox(width: 4),
               Text(
-                '${_selectedItems.length} pieces',
+                '$selectedCount ${selectedCount == 1 ? 'piece' : 'pieces'}',
                 style: const TextStyle(
                   color: LockMyLookUi.muted,
                   fontSize: 12,
@@ -574,315 +541,682 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           ),
           const SizedBox(height: 12),
           if (_selectedItems.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 18),
-              child: Text(
-                'Select pieces from Your Wardrobe below.',
-                style: TextStyle(color: LockMyLookUi.muted),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 18,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7F8),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: LockMyLookUi.border,
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.checkroom_outlined,
+                    size: 28,
+                    color: LockMyLookUi.muted,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Build your outfit',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: LockMyLookUi.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pick clothes from Your Wardrobe below.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: LockMyLookUi.muted,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      if (_wardrobeSheetController.isAttached) {
+                        await _wardrobeSheetController.animateTo(
+                          0.72,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Choose Items'),
+                  ),
+                ],
               ),
             )
           else
-            SizedBox(
-              height: 118,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _selectedItems.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (_, index) {
-                  final item = _selectedItems[index];
+            Column(
+              children: [
+                SizedBox(
+                  height: 128,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(right: 2),
+                    itemCount: _selectedItems.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: 10),
+                    itemBuilder: (_, index) {
+                      final item = _selectedItems[index];
 
-                  return SizedBox(
-                    width: 105,
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F2F4),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: LockMyLookUi.coral.withAlpha(180),
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: _itemImage(item),
-                              ),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 6,
+                      return SizedBox(
+                        width: 108,
+                        child: Stack(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F2F4),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: LockMyLookUi.coral.withAlpha(180),
                                 ),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: _itemImage(item),
+                                  ),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      7,
+                                      5,
+                                      7,
+                                      6,
+                                    ),
+                                    color: Colors.white,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _categoryLabel(
+                                            item.category.name,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            color: LockMyLookUi.muted,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          item.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: Material(
                                 color: Colors.white,
-                                child: Text(
-                                  item.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                shape: const CircleBorder(),
+                                elevation: 1,
+                                child: InkWell(
+                                  onTap: () => _toggleItem(item),
+                                  customBorder: const CircleBorder(),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(5),
+                                    child: Icon(Icons.close, size: 14),
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          top: 6,
-                          right: 6,
-                          child: Material(
-                            color: Colors.white,
-                            shape: const CircleBorder(),
-                            child: InkWell(
-                              onTap: () => _toggleItem(item),
-                              customBorder: const CircleBorder(),
-                              child: const Padding(
-                                padding: EdgeInsets.all(5),
-                                child: Icon(Icons.close, size: 14),
-                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          if (_wardrobeSheetController.isAttached) {
+                            await _wardrobeSheetController.animateTo(
+                              0.72,
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add More'),
+                      ),
                     ),
-                  );
-                },
-              ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            _selectedItems.isEmpty ? null : _tryOnOutfit,
+                        icon: const Icon(Icons.person_outline),
+                        label: const Text('Try On'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _selectedItems.isEmpty
-                      ? null
-                      : _clearSelection,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Start Over'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _selectedItems.isEmpty ? null : _tryOnOutfit,
-                  icon: const Icon(Icons.person_outline),
-                  label: const Text('Try On'),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
   Widget _wardrobeSheet(List<WardrobeItem> items) {
+    final categories = <String>{
+      'All',
+      ...items.map((item) => item.category.name),
+    }.toList();
+
+    final filteredItems = _category == 'All'
+        ? items
+        : items
+            .where((item) => item.category.name == _category)
+            .toList();
+
     return DraggableScrollableSheet(
       controller: _wardrobeSheetController,
-      initialChildSize: 0.19,
-      minChildSize: 0.19,
-      maxChildSize: 0.62,
+      initialChildSize: 0.17,
+      minChildSize: 0.17,
+      maxChildSize: 0.72,
       snap: true,
-      snapSizes: const [0.19, 0.62],
+      snapAnimationDuration: const Duration(milliseconds: 280),
+      snapSizes: const [0.17, 0.72],
+      expand: true,
       builder: (context, scrollController) {
         return Material(
           color: Colors.white,
-          elevation: 14,
+          elevation: 16,
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(26),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 10, 4),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: _collapseWardrobe,
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(19),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (details) {
+                  if (!_wardrobeSheetController.isAttached) {
+                    return;
+                  }
+
+                  final screenHeight = MediaQuery.sizeOf(context).height;
+                  final nextSize = _wardrobeSheetController.size -
+                      (details.primaryDelta ?? 0) / screenHeight;
+
+                  _wardrobeSheetController.jumpTo(
+                    nextSize.clamp(0.17, 0.72),
+                  );
+                },
+                onVerticalDragEnd: (details) {
+                  if (!_wardrobeSheetController.isAttached) {
+                    return;
+                  }
+
+                  final velocity = details.primaryVelocity ?? 0;
+                  final current = _wardrobeSheetController.size;
+
+                  final target = velocity < -350
+                      ? 0.72
+                      : velocity > 350
+                          ? 0.17
+                          : current >= 0.45
+                              ? 0.72
+                              : 0.17;
+
+                  _wardrobeSheetController.animateTo(
+                    target,
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: _collapseWardrobe,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(19),
+                              ),
+                              child: const Icon(Icons.close, size: 20),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Your Wardrobe',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: LockMyLookUi.ink,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${items.length} items',
+                            style: const TextStyle(
+                              color: LockMyLookUi.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      GestureDetector(
+                        onTap: () {
+                          if (!_wardrobeSheetController.isAttached) {
+                            return;
+                          }
+
+                          _wardrobeSheetController.animateTo(
+                            _wardrobeSheetController.size >= 0.45
+                                ? 0.17
+                                : 0.72,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                        child: Container(
+                          width: 38,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD5D8DD),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
-                        child: const Icon(Icons.close, size: 20),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Your Wardrobe',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: LockMyLookUi.ink,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${items.length} items',
-                      style: const TextStyle(
-                        color: LockMyLookUi.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 38,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD5D8DD),
-                  borderRadius: BorderRadius.circular(4),
+                    ],
+                  ),
                 ),
               ),
               Expanded(
-                child: items.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'Add wardrobe items first.',
-                          style: TextStyle(color: LockMyLookUi.muted),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 82,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFAFAFB),
+                          border: Border(
+                            right: BorderSide(
+                              color: LockMyLookUi.border,
+                              width: 1,
+                            ),
+                          ),
                         ),
-                      )
-                    : ListView(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        children: [
-                          if (_error != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                _error!,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: LockMyLookUi.coral,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          if (_generating)
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: 10),
-                              child: LinearProgressIndicator(minHeight: 3),
-                            ),
-                          SizedBox(
-                            height: 118,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: items.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(width: 10),
-                              itemBuilder: (_, index) {
-                                final item = items[index];
-                                final selected = _selectedItems.any(
-                                  (selectedItem) =>
-                                      selectedItem.id == item.id,
-                                );
+                        child: ListView.builder(
+                          padding: const EdgeInsets.only(
+                            top: 6,
+                            bottom: 24,
+                          ),
+                          itemCount: categories.length,
+                          itemBuilder: (context, index) {
+                            final category = categories[index];
+                            final selected = _category == category;
+                            final categorySelectionCount = category == 'All'
+                                ? _selectedItems.length
+                                : _selectedItems
+                                    .where(
+                                      (item) =>
+                                          item.category.name == category,
+                                    )
+                                    .length;
 
-                                return GestureDetector(
-                                  onTap: () => _toggleItem(item),
-                                  child: SizedBox(
-                                    width: 96,
-                                    child: Stack(
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _category = category;
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration:
+                                    const Duration(milliseconds: 160),
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: selected
+                                          ? LockMyLookUi.coral
+                                          : Colors.transparent,
+                                      width: 4,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? const Color(0xFFFFE7E4)
+                                            : const Color(0xFFF1F2F4),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        _categoryIcon(category),
+                                        size: 23,
+                                        color: selected
+                                            ? LockMyLookUi.coral
+                                            : const Color(0xFF7D8490),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Container(
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF1F2F4),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                            border: Border.all(
+                                        Flexible(
+                                          child: Text(
+                                            category == 'All'
+                                                ? 'All'
+                                                : _categoryLabel(category),
+                                            maxLines: 2,
+                                            overflow:
+                                                TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              height: 1.15,
+                                              fontWeight: selected
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w600,
                                               color: selected
                                                   ? LockMyLookUi.coral
-                                                  : Colors.transparent,
-                                              width: 2,
+                                                  : LockMyLookUi.ink,
                                             ),
                                           ),
-                                          clipBehavior: Clip.antiAlias,
-                                          child: Column(
-                                            children: [
-                                              Expanded(
-                                                child: _itemImage(item),
-                                              ),
-                                              Container(
-                                                width: double.infinity,
-                                                color: Colors.white,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 7,
-                                                  vertical: 6,
-                                                ),
-                                                child: Text(
-                                                  item.name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    fontWeight:
-                                                        FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
                                         ),
-                                        if (selected)
-                                          Positioned(
-                                            right: 6,
-                                            top: 6,
+                                        if (categorySelectionCount > 0)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(left: 3),
                                             child: Container(
-                                              width: 22,
-                                              height: 22,
-                                              decoration:
-                                                  const BoxDecoration(
-                                                color: LockMyLookUi.coral,
-                                                shape: BoxShape.circle,
+                                              constraints:
+                                                  const BoxConstraints(
+                                                minWidth: 15,
+                                                minHeight: 15,
                                               ),
-                                              child: const Icon(
-                                                Icons.check,
-                                                size: 14,
-                                                color: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 4,
+                                                vertical: 1,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: LockMyLookUi.coral,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                '$categorySelectionCount',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
                                               ),
                                             ),
                                           ),
                                       ],
                                     ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          if (_error != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(10, 4, 10, 4),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  _error!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: LockMyLookUi.coral,
+                                    fontSize: 11,
                                   ),
-                                );
-                              },
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          OutlinedButton.icon(
-                            onPressed: _selectedItems.isEmpty
-                                ? null
-                                : _tryOnOutfit,
-                            icon: const Icon(Icons.person_outline),
-                            label: const Text('Try On Selected Outfit'),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: _showGenerator,
-                            icon: const Icon(Icons.auto_awesome),
-                            label: const Text('Style with AI'),
+                          if (_generating)
+                            const LinearProgressIndicator(minHeight: 3),
+                          Expanded(
+                            child: filteredItems.isEmpty
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(20),
+                                      child: Text(
+                                        'No items in this category.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: LockMyLookUi.muted,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : GridView.builder(
+                                    controller: scrollController,
+                                    physics:
+                                        const ClampingScrollPhysics(),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      10,
+                                      8,
+                                      12,
+                                      28,
+                                    ),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 10,
+                                      childAspectRatio: 0.76,
+                                    ),
+                                    itemCount: filteredItems.length,
+                                    itemBuilder: (context, index) {
+                                      final item = filteredItems[index];
+                                      final selected = _selectedItems.any(
+                                        (selectedItem) =>
+                                            selectedItem.id == item.id,
+                                      );
+
+                                      return GestureDetector(
+                                        onTap: () => _toggleItem(item),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 180,
+                                          ),
+                                          padding: const EdgeInsets.all(5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(15),
+                                            border: Border.all(
+                                              color: selected
+                                                  ? LockMyLookUi.coral
+                                                  : LockMyLookUi.border,
+                                              width: selected ? 2 : 1,
+                                            ),
+                                          ),
+                                          child: Stack(
+                                            children: [
+                                              Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  Expanded(
+                                                    child: ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        11,
+                                                      ),
+                                                      child: _itemImage(item),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 5),
+                                                  Text(
+                                                    _categoryLabel(
+                                                      item.category.name,
+                                                    ),
+                                                    textAlign:
+                                                        TextAlign.center,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color:
+                                                          LockMyLookUi.muted,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    item.name,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    textAlign:
+                                                        TextAlign.center,
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: LockMyLookUi.ink,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 3),
+                                                ],
+                                              ),
+                                              if (selected)
+                                                Positioned(
+                                                  top: 5,
+                                                  right: 5,
+                                                  child: Container(
+                                                    width: 23,
+                                                    height: 23,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                      color:
+                                                          LockMyLookUi.coral,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.check,
+                                                      size: 15,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                           ),
                         ],
                       ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  String _categoryLabel(String value) {
+    if (value.isEmpty) {
+      return value;
+    }
+
+    return value
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) =>
+              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
+        .join(' ');
+  }
+
+  IconData _categoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'all':
+        return Icons.auto_awesome;
+      case 'tops':
+      case 'top':
+        return Icons.checkroom_outlined;
+      case 'bottoms':
+      case 'bottom':
+        return Icons.straighten_outlined;
+      case 'shoes':
+      case 'footwear':
+        return Icons.directions_walk_outlined;
+      case 'accessories':
+      case 'accessory':
+        return Icons.watch_outlined;
+      case 'outerwear':
+      case 'jackets':
+      case 'jacket':
+        return Icons.layers_outlined;
+      case 'dresses':
+      case 'dress':
+        return Icons.dry_cleaning_outlined;
+      default:
+        return Icons.checkroom_outlined;
+    }
   }
 
   Widget _itemImage(WardrobeItem item) {
