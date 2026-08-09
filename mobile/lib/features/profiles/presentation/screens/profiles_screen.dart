@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:mobile/app/routes.dart';
+import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/profiles/application/profile_controller.dart';
 import 'package:mobile/features/profiles/application/profile_providers.dart';
 
@@ -19,10 +20,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   @override
   void initState() {
     super.initState();
-
-    Future.microtask(
-      () => ref.read(profileControllerProvider.notifier).loadProfiles(),
-    );
+    Future.microtask(() => ref.read(profileControllerProvider.notifier).loadProfiles());
   }
 
   @override
@@ -33,31 +31,31 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
 
   Future<void> _createProfile() async {
     final name = _nameController.text.trim();
-
-    if (name.isEmpty) {
-      return;
-    }
-
-    final success = await ref
-        .read(profileControllerProvider.notifier)
-        .createProfile(name: name);
-
-    if (!mounted) {
-      return;
-    }
-
+    if (name.isEmpty) return;
+    final success = await ref.read(profileControllerProvider.notifier).createProfile(name: name);
+    if (!mounted) return;
     if (success) {
       _nameController.clear();
       FocusScope.of(context).unfocus();
     }
   }
 
-  Future<void> _deleteProfile(String profileId) async {
-    await ref.read(profileControllerProvider.notifier).deleteProfile(profileId);
-  }
-
-  void _openWardrobe(String profileId) {
-    context.push(AppRoutes.wardrobe, extra: profileId);
+  void _nav(int index) {
+    switch (index) {
+      case 0:
+        context.go(AppRoutes.home);
+        return;
+      case 1:
+        final profiles = ref.read(profileControllerProvider).profiles;
+        if (profiles.isNotEmpty) context.push(AppRoutes.wardrobe, extra: profiles.first.id);
+        return;
+      case 2:
+        final profiles = ref.read(profileControllerProvider).profiles;
+        if (profiles.isNotEmpty) context.push(AppRoutes.outfits, extra: profiles.first.id);
+        return;
+      case 3:
+        return;
+    }
   }
 
   @override
@@ -65,112 +63,57 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     final state = ref.watch(profileControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profiles')),
+      backgroundColor: LockMyLookUi.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Your Profiles',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Create profiles to organize your wardrobe and outfits.',
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _nameController,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Profile name',
-                  hintText: 'e.g. Personal',
-                  border: OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => _createProfile(),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: state.status == ProfileStatus.loading
-                    ? null
-                    : _createProfile,
-                child: const Text('Create Profile'),
-              ),
-              const SizedBox(height: 24),
-              if (state.status == ProfileStatus.loading)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: LinearProgressIndicator(),
-                ),
-              if (state.errorMessage != null)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(state.errorMessage!)),
-                        IconButton(
-                          onPressed: () {
-                            ref
-                                .read(profileControllerProvider.notifier)
-                                .clearError();
-                          },
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
+          children: [
+            Row(children: [IconButton(onPressed: () => context.go(AppRoutes.home), icon: const Icon(Icons.arrow_back)), const Expanded(child: Text('Profile', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: LockMyLookUi.ink)))]),
+            const SizedBox(height: 8),
+            const Text('Family Wardrobe', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: LockMyLookUi.ink)),
+            const SizedBox(height: 6),
+            const Text('Create profiles for everyone and keep each wardrobe separate.', style: TextStyle(color: LockMyLookUi.muted, height: 1.4)),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: LockMyLookUi.cardDecoration(),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Text('Add New Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: LockMyLookUi.ink)),
+                const SizedBox(height: 12),
+                TextField(controller: _nameController, textInputAction: TextInputAction.done, decoration: const InputDecoration(hintText: 'Profile name'), onSubmitted: (_) => _createProfile()),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(onPressed: state.status == ProfileStatus.loading ? null : _createProfile, icon: const Icon(Icons.add), label: const Text('Create Profile')),
+              ]),
+            ),
+            const SizedBox(height: 22),
+            LockMyLookUi.sectionTitle('Profiles', action: '${state.profiles.length} total'),
+            const SizedBox(height: 8),
+            if (state.status == ProfileStatus.loading && state.profiles.isEmpty)
+              const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+            else if (state.profiles.isEmpty)
+              const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No profiles yet.', style: TextStyle(color: LockMyLookUi.muted))))
+            else
+              ...state.profiles.map((profile) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: GestureDetector(
+                      onTap: () => context.push(AppRoutes.wardrobe, extra: profile.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: LockMyLookUi.cardDecoration(),
+                        child: Row(children: [
+                          Container(width: 52, height: 52, decoration: const BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle), child: Center(child: Text(profile.name.isEmpty ? '?' : profile.name[0].toUpperCase(), style: const TextStyle(color: LockMyLookUi.coral, fontWeight: FontWeight.w900, fontSize: 19)))),
+                          const SizedBox(width: 13),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(profile.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: LockMyLookUi.ink)), const SizedBox(height: 4), Text('Open wardrobe', style: const TextStyle(fontSize: 12, color: LockMyLookUi.muted))])),
+                          IconButton(onPressed: state.status == ProfileStatus.loading ? null : () => ref.read(profileControllerProvider.notifier).deleteProfile(profile.id), icon: const Icon(Icons.delete_outline, color: LockMyLookUi.muted)),
+                          const Icon(Icons.chevron_right, color: LockMyLookUi.muted),
+                        ]),
+                      ),
                     ),
-                  ),
-                ),
-              Expanded(child: _buildProfileList(state)),
-            ],
-          ),
+                  )),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildProfileList(ProfileState state) {
-    if (state.status == ProfileStatus.loading && state.profiles.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (state.status != ProfileStatus.loading && state.profiles.isEmpty) {
-      return const Center(
-        child: Text(
-          'No profiles yet.\nCreate your first profile above.',
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-
-    return ListView.separated(
-      itemCount: state.profiles.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final profile = state.profiles[index];
-
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              child: Text(
-                profile.name.isEmpty ? '?' : profile.name[0].toUpperCase(),
-              ),
-            ),
-            title: Text(profile.name),
-            subtitle: Text(profile.id),
-            onTap: () => _openWardrobe(profile.id),
-            trailing: IconButton(
-              tooltip: 'Delete profile',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: state.status == ProfileStatus.loading
-                  ? null
-                  : () => _deleteProfile(profile.id),
-            ),
-          ),
-        );
-      },
+      bottomNavigationBar: LmlBottomNav(currentIndex: 3, onTap: _nav),
     );
   }
 }
