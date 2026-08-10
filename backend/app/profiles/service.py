@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 
 from app.core.exceptions import NotFoundError
 from app.core.logging import log_profile_created
+from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.profiles.schema import ProfileCreateRequest
 
@@ -36,5 +37,8 @@ def get_owned_profile(session: Session, account_id: UUID, profile_id: UUID) -> P
 
 def delete_profile(session: Session, account_id: UUID, profile_id: UUID) -> None:
     profile = get_owned_profile(session, account_id, profile_id)
+
+    # Remove both the original profile photo and its private VTO cutout.
+    profile_image_service.delete(session, profile)
     session.delete(profile)
     session.commit()
