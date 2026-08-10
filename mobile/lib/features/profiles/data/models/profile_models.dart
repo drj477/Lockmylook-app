@@ -1,19 +1,26 @@
 import 'package:mobile/core/constants/api_constants.dart';
 
 class Profile {
-  const Profile({required this.id, required this.name, this.avatarUrl});
+  const Profile({
+    required this.id,
+    required this.name,
+    this.avatarUrl,
+    this.vtoAssetUrl,
+  });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
       id: json['id'] as String,
       name: json['name'] as String,
       avatarUrl: _resolveMediaUrl(json['avatar_url'] as String?),
+      vtoAssetUrl: _resolveMediaUrl(json['vto_asset_url'] as String?),
     );
   }
 
   final String id;
   final String name;
   final String? avatarUrl;
+  final String? vtoAssetUrl;
 
   static String? _resolveMediaUrl(String? value) {
     final trimmed = value?.trim() ?? '';
