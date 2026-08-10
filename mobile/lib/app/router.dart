@@ -6,7 +6,7 @@ import 'package:mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/register_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:mobile/features/home/presentation/screens/home_screen.dart';
-import 'package:mobile/features/outfits/presentation/screens/outfit_builder_screen.dart';
+import 'package:mobile/features/outfits/presentation/screens/virtual_try_on_screen.dart';
 import 'package:mobile/features/profiles/presentation/screens/profiles_screen.dart';
 import 'package:mobile/features/splash/presentation/screens/splash_screen.dart';
 import 'package:mobile/features/wardrobe/presentation/screens/wardrobe_screen.dart';
@@ -82,7 +82,7 @@ class AppRouter {
             );
           }
 
-          return OutfitBuilderScreen(profileId: profileId);
+          return VirtualTryOnScreen(profileId: profileId);
         },
       ),
     ],

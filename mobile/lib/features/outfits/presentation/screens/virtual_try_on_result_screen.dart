@@ -83,19 +83,21 @@ class _VirtualTryOnResultScreenState
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 28),
           children: [
             Container(
-              height: 520,
+              height: MediaQuery.sizeOf(context).height * .68,
+              constraints: const BoxConstraints(minHeight: 420),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFF1F2F4),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: LockMyLookUi.border),
               ),
               clipBehavior: Clip.antiAlias,
               child: Image.network(
                 widget.result.imageUrl,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
 

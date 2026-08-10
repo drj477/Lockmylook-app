@@ -86,8 +86,12 @@ class ProfileController extends Notifier<ProfileState> {
   }) async {
     state = state.copyWith(status: ProfileStatus.loading, clearError: true);
 
+    String? createdProfileId;
+
     try {
       final profile = await _repository.createProfile(name: name);
+      createdProfileId = profile.id;
+
       final updatedProfile = await _repository.uploadTryOnPhoto(
         profileId: profile.id,
         file: file,
@@ -99,6 +103,16 @@ class ProfileController extends Notifier<ProfileState> {
       );
       return true;
     } catch (error) {
+      // If image processing fails after profile creation, remove the empty
+      // profile so a retry cannot silently create duplicates.
+      if (createdProfileId != null) {
+        try {
+          await _repository.deleteProfile(createdProfileId);
+        } catch (_) {
+          // Preserve the original upload error for the user.
+        }
+      }
+
       state = state.copyWith(
         status: ProfileStatus.error,
         errorMessage: _messageFromError(error),

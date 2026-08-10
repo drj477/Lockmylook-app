@@ -61,13 +61,12 @@ class VirtualTryOnService:
                 ),
             )
 
-        # Profiles created before the transparent VTO asset was introduced are
-        # upgraded lazily the first time they are used for Virtual Try-On.
-        if not profile.vto_asset_url:
-            try:
-                profile = profile_image_service.ensure_vto_asset(session, profile)
-            except ValueError as error:
-                raise HTTPException(status_code=422, detail=str(error)) from error
+        # Older profiles may not have a VTO asset yet. Generate it lazily and
+        # keep it separate from the original profile photo.
+        try:
+            profile = profile_image_service.ensure_vto_asset(session, profile)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
         person_path = self._resolve_local_path(profile.vto_asset_url)
 

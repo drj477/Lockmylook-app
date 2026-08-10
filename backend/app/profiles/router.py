@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlmodel import Session
 
 from app.auth.dependencies import get_current_account
@@ -61,7 +61,12 @@ async def upload_try_on_photo(
     session: Session = Depends(get_session),
 ) -> Envelope[ProfileRead]:
     profile = service.get_owned_profile(session, current_account.id, profile_id)
-    profile = profile_image_service.upload(session, profile, file)
+
+    try:
+        profile = profile_image_service.upload(session, profile, file)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
     return Envelope(
         message="Try-On photo saved successfully.",
         data=ProfileRead.model_validate(profile),

@@ -6,7 +6,8 @@ from sqlmodel import Session
 from app.profiles.background_removal import remove_background
 from app.profiles.model import Profile
 
-UPLOAD_DIR = Path("uploads/profiles")
+PROFILE_UPLOAD_DIR = Path("uploads/profiles")
+VTO_UPLOAD_DIR = Path("uploads/vto_profiles")
 MAX_FILE_SIZE = 10 * 1024 * 1024
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
@@ -14,7 +15,8 @@ ALLOWED_CONTENT_TYPES = {
     "image/webp": ".webp",
 }
 
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+PROFILE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+VTO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class ProfileImageService:
@@ -34,14 +36,13 @@ class ProfileImageService:
         if not data:
             raise ValueError("Profile photo cannot be empty.")
 
-        old_paths = self._stored_paths(profile)
-        filepath = UPLOAD_DIR / f"{profile.id}{extension}"
-        vto_path = UPLOAD_DIR / f"{profile.id}-vto.png"
+        old_paths = self.stored_paths(profile)
+        filepath = PROFILE_UPLOAD_DIR / f"{profile.id}{extension}"
+        vto_path = VTO_UPLOAD_DIR / f"{profile.id}.png"
 
         try:
-            # Generate the VTO asset before committing the new profile record.
-            # This guarantees that a successful profile upload always has a
-            # usable transparent person asset for future VTO requests.
+            # Keep the original profile image untouched. The VTO asset is a
+            # separate transparent derivative used only by the try-on pipeline.
             vto_data = remove_background(data)
             filepath.write_bytes(data)
             vto_path.write_bytes(vto_data)
@@ -49,8 +50,7 @@ class ProfileImageService:
             filepath.unlink(missing_ok=True)
             vto_path.unlink(missing_ok=True)
             raise ValueError(
-                "Profile photo was saved locally but could not be processed "
-                "for Virtual Try-On."
+                "Profile photo could not be processed for Virtual Try-On."
             ) from error
 
         for old_path in old_paths:
@@ -65,44 +65,56 @@ class ProfileImageService:
         return profile
 
     def ensure_vto_asset(self, session: Session, profile: Profile) -> Profile:
-        """Create the VTO asset for an older profile uploaded before this feature."""
+        """Create/migrate the VTO asset for an older profile."""
         if profile.vto_asset_url:
-            path = Path(profile.vto_asset_url)
-            if path.exists() and path.is_file() and path.stat().st_size > 0:
-                return profile
+            existing = self._path_from_value(profile.vto_asset_url)
+            if existing and existing.exists() and existing.is_file() and existing.stat().st_size > 0:
+                # Older builds stored VTO files beside profile photos. Move the
+                # derivative to the dedicated VTO directory on first use.
+                if VTO_UPLOAD_DIR.resolve() in existing.parents:
+                    return profile
 
         if not profile.avatar_url:
             raise ValueError("Add a profile image before using Virtual Try-On.")
 
-        source_path = Path(profile.avatar_url)
-        if not source_path.is_absolute():
-            source_path = Path.cwd() / source_path
-        source_path = source_path.resolve()
+        source_path = self._path_from_value(profile.avatar_url)
+        if source_path is None:
+            raise ValueError("Profile image is unavailable.")
 
         uploads_root = (Path.cwd() / "uploads").resolve()
         try:
             source_path.relative_to(uploads_root)
         except ValueError as error:
-            raise ValueError("Profile image is outside the application's uploads directory.") from error
+            raise ValueError(
+                "Profile image is outside the application's uploads directory."
+            ) from error
 
         if not source_path.exists() or not source_path.is_file():
             raise ValueError("Profile image file is unavailable.")
 
-        vto_path = UPLOAD_DIR / f"{profile.id}-vto.png"
+        vto_path = VTO_UPLOAD_DIR / f"{profile.id}.png"
+        old_vto_path = self._path_from_value(profile.vto_asset_url)
+
         try:
             vto_path.write_bytes(remove_background(source_path.read_bytes()))
         except Exception as error:
             vto_path.unlink(missing_ok=True)
-            raise ValueError("Existing profile image could not be processed for Virtual Try-On.") from error
+            raise ValueError(
+                "Existing profile image could not be processed for Virtual Try-On."
+            ) from error
 
         profile.vto_asset_url = str(vto_path)
         session.add(profile)
         session.commit()
         session.refresh(profile)
+
+        if old_vto_path and old_vto_path != vto_path.resolve():
+            old_vto_path.unlink(missing_ok=True)
+
         return profile
 
     def delete(self, session: Session, profile: Profile) -> None:
-        for path in self._stored_paths(profile):
+        for path in self.stored_paths(profile):
             path.unlink(missing_ok=True)
 
         profile.avatar_url = None
@@ -111,15 +123,21 @@ class ProfileImageService:
         session.commit()
 
     @staticmethod
-    def _stored_paths(profile: Profile) -> set[Path]:
+    def _path_from_value(value: str | None) -> Path | None:
+        if not value:
+            return None
+        path = Path(value)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        return path.resolve()
+
+    @classmethod
+    def stored_paths(cls, profile: Profile) -> set[Path]:
         paths: set[Path] = set()
         for value in (profile.avatar_url, profile.vto_asset_url):
-            if not value:
-                continue
-            path = Path(value)
-            if not path.is_absolute():
-                path = Path.cwd() / path
-            paths.add(path.resolve())
+            path = cls._path_from_value(value)
+            if path:
+                paths.add(path)
         return paths
 
 

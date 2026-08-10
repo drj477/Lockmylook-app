@@ -46,9 +46,15 @@ class ProfileApi {
       ),
     });
 
-    final response = await _apiClient.postMultipart(
+    final response = await _apiClient.dio.post(
       '${ApiEndpoints.profiles}/$profileId/try-on-photo',
       data: formData,
+      options: Options(
+        // The first local segmentation inference can take longer than the
+        // normal API timeout while the ONNX session is warming up.
+        receiveTimeout: const Duration(seconds: 180),
+        sendTimeout: const Duration(seconds: 30),
+      ),
     );
 
     final envelope = response.data as Map<String, dynamic>;
