@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class VirtualTryOnRequest(BaseModel):
-    # The provider recommends up to 6 garments for a clean result.
-    item_ids: list[UUID] = Field(min_length=1, max_length=6)
+    # The currently pinned p-image-try-on API version accepts up to 4 garments.
+    item_ids: list[UUID] = Field(min_length=1, max_length=4)
 
 
 class VirtualTryOnResponse(BaseModel):
