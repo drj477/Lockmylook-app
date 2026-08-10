@@ -1,10 +1,12 @@
 import base64
+import io
 import json
 from pathlib import Path
 from uuid import UUID
 
 import httpx
 from fastapi import HTTPException
+from PIL import Image
 from sqlmodel import Session
 
 from app.core.config import get_settings
@@ -16,6 +18,8 @@ from .model import VirtualTryOnResult
 
 class VirtualTryOnService:
     MODEL = "prunaai/p-image-try-on"
+    MAX_LOCAL_IMAGE_BYTES = 4 * 1024 * 1024
+    MAX_LOCAL_IMAGE_SIDE = 2048
 
     def generate(
         self,
@@ -74,6 +78,8 @@ class VirtualTryOnService:
                 "prompt": prompt,
                 "turbo": len(items) <= 4,
                 "preserve_input_size": True,
+                "output_format": "jpg",
+                "output_quality": 95,
             }
         }
 
@@ -91,6 +97,12 @@ class VirtualTryOnService:
                     json=payload,
                 )
                 response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            detail = error.response.text.strip() or str(error)
+            raise HTTPException(
+                status_code=502,
+                detail=f"Virtual Try-On provider error: {detail}",
+            ) from error
         except httpx.HTTPError as error:
             raise HTTPException(
                 status_code=502,
@@ -125,7 +137,7 @@ class VirtualTryOnService:
 
         import uuid
 
-        filename = f"{profile.id}-{uuid.uuid4()}.png"
+        filename = f"{profile.id}-{uuid.uuid4()}.jpg"
         output_path = output_dir / filename
         output_path.write_bytes(image_response.content)
 
@@ -139,40 +151,72 @@ class VirtualTryOnService:
         session.refresh(result)
         return result
 
-    @staticmethod
-    def _image_input(value: str) -> str:
+    @classmethod
+    def _image_input(cls, value: str) -> str:
         value = value.strip()
 
-        if value.startswith(("http://", "https://", "data:")):
+        if value.startswith("data:"):
+            return value
+
+        if value.startswith(("http://", "https://")):
             return value
 
         path = Path(value)
-        if not path.exists():
+        if not path.exists() or not path.is_file():
             raise HTTPException(
                 status_code=422,
                 detail=f"Image file is unavailable: {value}",
             )
 
         data = path.read_bytes()
-        if len(data) > 256 * 1024:
+        if not data:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Image file is empty: {value}",
+            )
+
+        if len(data) <= cls.MAX_LOCAL_IMAGE_BYTES:
+            mime = cls._mime_for_path(path)
+            encoded = base64.b64encode(data).decode("ascii")
+            return f"data:{mime};base64,{encoded}"
+
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                image = image.convert("RGB")
+                image.thumbnail(
+                    (cls.MAX_LOCAL_IMAGE_SIDE, cls.MAX_LOCAL_IMAGE_SIDE),
+                    Image.Resampling.LANCZOS,
+                )
+
+                output = io.BytesIO()
+                image.save(output, format="JPEG", quality=85, optimize=True)
+                compressed = output.getvalue()
+        except Exception as error:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Could not prepare image for Virtual Try-On: {path}",
+            ) from error
+
+        if len(compressed) > cls.MAX_LOCAL_IMAGE_BYTES:
             raise HTTPException(
                 status_code=422,
                 detail=(
-                    "A stored image is larger than 256 KB. "
-                    "Use a hosted image URL for Virtual Try-On."
+                    "Image is too large for Virtual Try-On after compression. "
+                    "Please use a smaller image."
                 ),
             )
 
-        extension = path.suffix.lower()
-        mime = {
+        encoded = base64.b64encode(compressed).decode("ascii")
+        return f"data:image/jpeg;base64,{encoded}"
+
+    @staticmethod
+    def _mime_for_path(path: Path) -> str:
+        return {
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
             ".png": "image/png",
             ".webp": "image/webp",
-        }.get(extension, "application/octet-stream")
-
-        encoded = base64.b64encode(data).decode("ascii")
-        return f"data:{mime};base64,{encoded}"
+        }.get(path.suffix.lower(), "application/octet-stream")
 
     @staticmethod
     def to_response(result: VirtualTryOnResult, public_base_url: str):
