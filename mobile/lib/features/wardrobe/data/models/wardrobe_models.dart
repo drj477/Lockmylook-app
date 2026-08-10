@@ -1,3 +1,5 @@
+import 'package:mobile/core/constants/api_constants.dart';
+
 class WardrobeCategory {
   const WardrobeCategory({required this.id, required this.name});
 
@@ -30,9 +32,39 @@ class WardrobeImage {
   }
 
   final String id;
-  final String imageUrl;
-  final String thumbnailUrl;
+  final String _imageUrl;
+  final String _thumbnailUrl;
   final int displayOrder;
+
+  String get imageUrl => _resolveMediaUrl(_imageUrl);
+  String get thumbnailUrl => _resolveMediaUrl(_thumbnailUrl);
+
+  static String _resolveMediaUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return trimmed;
+
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null && parsed.hasScheme && parsed.host.isNotEmpty) {
+      return trimmed;
+    }
+
+    var path = trimmed.replaceAll('\\', '/');
+    if (path.startsWith('./')) {
+      path = path.substring(2);
+    }
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+
+    final base = Uri.parse(ApiConstants.baseUrl);
+    final origin = Uri(
+      scheme: base.scheme,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+    );
+
+    return origin.resolve('/$path').toString();
+  }
 }
 
 class WardrobeItem {
@@ -177,33 +209,13 @@ class WardrobeUpdateRequest {
   Map<String, dynamic> toJson() {
     final data = <String, dynamic>{};
 
-    if (name != null) {
-      data['name'] = name;
-    }
-
-    if (brand != null) {
-      data['brand'] = brand;
-    }
-
-    if (primaryColor != null) {
-      data['primary_color'] = primaryColor;
-    }
-
-    if (secondaryColor != null) {
-      data['secondary_color'] = secondaryColor;
-    }
-
-    if (season != null) {
-      data['season'] = season;
-    }
-
-    if (occasion != null) {
-      data['occasion'] = occasion;
-    }
-
-    if (favorite != null) {
-      data['favorite'] = favorite;
-    }
+    if (name != null) data['name'] = name;
+    if (brand != null) data['brand'] = brand;
+    if (primaryColor != null) data['primary_color'] = primaryColor;
+    if (secondaryColor != null) data['secondary_color'] = secondaryColor;
+    if (season != null) data['season'] = season;
+    if (occasion != null) data['occasion'] = occasion;
+    if (favorite != null) data['favorite'] = favorite;
 
     return data;
   }
