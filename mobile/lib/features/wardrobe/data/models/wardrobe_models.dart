@@ -17,27 +17,24 @@ class WardrobeCategory {
 class WardrobeImage {
   const WardrobeImage({
     required this.id,
-    required this._imageUrl,
-    required this._thumbnailUrl,
+    required this.imageUrl,
+    required this.thumbnailUrl,
     required this.displayOrder,
   });
 
   factory WardrobeImage.fromJson(Map<String, dynamic> json) {
     return WardrobeImage(
       id: json['id'] as String,
-      _imageUrl: json['image_url'] as String,
-      _thumbnailUrl: json['thumbnail_url'] as String,
+      imageUrl: _resolveMediaUrl(json['image_url'] as String),
+      thumbnailUrl: _resolveMediaUrl(json['thumbnail_url'] as String),
       displayOrder: json['display_order'] as int,
     );
   }
 
   final String id;
-  final String _imageUrl;
-  final String _thumbnailUrl;
+  final String imageUrl;
+  final String thumbnailUrl;
   final int displayOrder;
-
-  String get imageUrl => _resolveMediaUrl(_imageUrl);
-  String get thumbnailUrl => _resolveMediaUrl(_thumbnailUrl);
 
   static String _resolveMediaUrl(String value) {
     final trimmed = value.trim();
