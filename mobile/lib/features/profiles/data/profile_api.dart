@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+
 import 'package:mobile/core/network/api_client.dart';
 import 'package:mobile/core/network/api_endpoints.dart';
 import 'package:mobile/features/profiles/data/models/profile_models.dart';
@@ -27,6 +31,28 @@ class ProfileApi {
     final data = response.data as Map<String, dynamic>;
 
     return Profile.fromJson(data['data'] as Map<String, dynamic>);
+  }
+
+  Future<Profile> uploadTryOnPhoto({
+    required String profileId,
+    required File file,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.uri.pathSegments.isNotEmpty
+            ? file.uri.pathSegments.last
+            : 'try-on-photo.jpg',
+      ),
+    });
+
+    final response = await _apiClient.postMultipart(
+      '${ApiEndpoints.profiles}/$profileId/try-on-photo',
+      data: formData,
+    );
+
+    final envelope = response.data as Map<String, dynamic>;
+    return Profile.fromJson(envelope['data'] as Map<String, dynamic>);
   }
 
   Future<Profile> getProfile(String profileId) async {
