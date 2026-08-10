@@ -47,7 +47,6 @@ class ProfileController extends Notifier<ProfileState> {
 
     try {
       final profiles = await _repository.listProfiles();
-
       state = ProfileState(status: ProfileStatus.loaded, profiles: profiles);
     } catch (error) {
       state = state.copyWith(
@@ -77,7 +76,33 @@ class ProfileController extends Notifier<ProfileState> {
         status: ProfileStatus.error,
         errorMessage: _messageFromError(error),
       );
+      return false;
+    }
+  }
 
+  Future<bool> createProfileWithTryOnPhoto({
+    required String name,
+    required File file,
+  }) async {
+    state = state.copyWith(status: ProfileStatus.loading, clearError: true);
+
+    try {
+      final profile = await _repository.createProfile(name: name);
+      final updatedProfile = await _repository.uploadTryOnPhoto(
+        profileId: profile.id,
+        file: file,
+      );
+
+      state = ProfileState(
+        status: ProfileStatus.loaded,
+        profiles: [...state.profiles, updatedProfile],
+      );
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        status: ProfileStatus.error,
+        errorMessage: _messageFromError(error),
+      );
       return false;
     }
   }
@@ -122,14 +147,12 @@ class ProfileController extends Notifier<ProfileState> {
           .toList();
 
       state = ProfileState(status: ProfileStatus.loaded, profiles: profiles);
-
       return true;
     } catch (error) {
       state = state.copyWith(
         status: ProfileStatus.error,
         errorMessage: _messageFromError(error),
       );
-
       return false;
     }
   }
