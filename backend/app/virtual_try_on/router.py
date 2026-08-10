@@ -32,6 +32,7 @@ def generate_try_on(
     items = session.exec(
         select(WardrobeItem).where(
             WardrobeItem.profile_id == owned_profile.id,
+            WardrobeItem.is_deleted.is_(False),
             WardrobeItem.id.in_(payload.item_ids),
         )
     ).all()
