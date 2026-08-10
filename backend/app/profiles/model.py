@@ -15,4 +15,5 @@ class Profile(SQLModel, table=True):
     account_id: UUID = Field(foreign_key="accounts.id", index=True, nullable=False)
     name: str = Field(nullable=False)
     avatar_url: str | None = Field(default=None)
+    vto_asset_url: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
