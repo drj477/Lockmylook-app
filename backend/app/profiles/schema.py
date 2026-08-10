@@ -20,5 +20,6 @@ class ProfileRead(BaseModel):
     id: UUID
     name: str
     avatar_url: str | None
+    vto_asset_url: str | None
 
     model_config = {"from_attributes": True}
