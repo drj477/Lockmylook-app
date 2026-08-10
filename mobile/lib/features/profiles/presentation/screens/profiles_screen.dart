@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:mobile/app/routes.dart';
+import 'package:mobile/core/constants/api_constants.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/profiles/application/profile_controller.dart';
 import 'package:mobile/features/profiles/application/profile_providers.dart';
+import 'package:mobile/features/profiles/data/models/profile_models.dart';
 
 class ProfilesScreen extends ConsumerStatefulWidget {
   const ProfilesScreen({super.key});
@@ -16,7 +21,9 @@ class ProfilesScreen extends ConsumerStatefulWidget {
 
 class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   final _nameController = TextEditingController();
-  final _avatarController = TextEditingController();
+  final _imagePicker = ImagePicker();
+  File? _selectedTryOnPhoto;
+  String? _editingProfileId;
 
   @override
   void initState() {
@@ -29,30 +36,130 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _avatarController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickTryOnPhoto({required ImageSource source}) async {
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      imageQuality: 92,
+      maxWidth: 1800,
+      maxHeight: 2400,
+    );
+
+    if (!mounted || picked == null) return;
+
+    setState(() {
+      _selectedTryOnPhoto = File(picked.path);
+    });
+  }
+
+  Future<void> _showPhotoSourcePicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Choose Try-On Photo',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: LockMyLookUi.ink,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_outlined),
+                  title: const Text('Take Photo'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickTryOnPhoto(source: ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Choose from Gallery'),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickTryOnPhoto(source: ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _createProfile() async {
     final name = _nameController.text.trim();
-    final avatarUrl = _avatarController.text.trim();
+    final photo = _selectedTryOnPhoto;
 
-    if (name.isEmpty) return;
+    if (name.isEmpty || photo == null) {
+      _showMessage('Add a profile name and a Try-On photo.');
+      return;
+    }
 
     final success = await ref
         .read(profileControllerProvider.notifier)
-        .createProfile(
-          name: name,
-          avatarUrl: avatarUrl.isEmpty ? null : avatarUrl,
-        );
+        .createProfileWithTryOnPhoto(name: name, file: photo);
 
     if (!mounted) return;
 
     if (success) {
       _nameController.clear();
-      _avatarController.clear();
+      setState(() => _selectedTryOnPhoto = null);
       FocusScope.of(context).unfocus();
+      _showMessage('Profile and Try-On photo saved.');
+    } else {
+      _showMessage(
+        ref.read(profileControllerProvider).errorMessage ??
+            'Could not create the profile.',
+      );
     }
+  }
+
+  Future<void> _updateTryOnPhoto(String profileId) async {
+    final photo = _selectedTryOnPhoto;
+    if (photo == null) {
+      _showMessage('Choose a Try-On photo first.');
+      return;
+    }
+
+    final success = await ref
+        .read(profileControllerProvider.notifier)
+        .uploadTryOnPhoto(profileId: profileId, file: photo);
+
+    if (!mounted) return;
+
+    if (success) {
+      setState(() {
+        _selectedTryOnPhoto = null;
+        _editingProfileId = null;
+      });
+      _showMessage('Try-On photo updated.');
+    } else {
+      _showMessage(
+        ref.read(profileControllerProvider).errorMessage ??
+            'Could not update the Try-On photo.',
+      );
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _nav(int index) {
@@ -77,9 +184,25 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     }
   }
 
+  String _imageUrl(String rawUrl) {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+
+    final origin = ApiConstants.baseUrl.endsWith('/api/v1')
+        ? ApiConstants.baseUrl.substring(
+            0,
+            ApiConstants.baseUrl.length - '/api/v1'.length,
+          )
+        : ApiConstants.baseUrl;
+    final path = rawUrl.startsWith('/') ? rawUrl.substring(1) : rawUrl;
+    return '$origin/$path';
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profileControllerProvider);
+    final isLoading = state.status == ProfileStatus.loading;
 
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
@@ -137,26 +260,17 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _nameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      hintText: 'Profile name',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _avatarController,
-                    keyboardType: TextInputType.url,
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
-                      hintText: 'Profile image URL (optional)',
-                      prefixIcon: Icon(Icons.image_outlined),
+                      hintText: 'Profile name',
+                      prefixIcon: Icon(Icons.person_outline),
                     ),
-                    onSubmitted: (_) => _createProfile(),
                   ),
+                  const SizedBox(height: 12),
+                  _tryOnPhotoPicker(),
                   const SizedBox(height: 8),
                   const Text(
-                    'This image is used automatically for Virtual Try-On. '
-                    'You will not be asked for a photo every time.',
+                    'Save one clear full-body photo. LockMyLook will reuse it automatically for Virtual Try-On.',
                     style: TextStyle(
                       fontSize: 11,
                       color: LockMyLookUi.muted,
@@ -165,11 +279,15 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: state.status == ProfileStatus.loading
-                        ? null
-                        : _createProfile,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create Profile'),
+                    onPressed: isLoading ? null : _createProfile,
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add),
+                    label: Text(isLoading ? 'Saving...' : 'Create Profile'),
                   ),
                 ],
               ),
@@ -200,63 +318,7 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
               ...state.profiles.map(
                 (profile) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: GestureDetector(
-                    onTap: () => context.push(
-                      AppRoutes.wardrobe,
-                      extra: profile.id,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: LockMyLookUi.cardDecoration(),
-                      child: Row(
-                        children: [
-                          _avatar(profile.name, profile.avatarUrl),
-                          const SizedBox(width: 13),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  profile.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 16,
-                                    color: LockMyLookUi.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  profile.avatarUrl == null ||
-                                          profile.avatarUrl!.isEmpty
-                                      ? 'Add a profile image for Virtual Try-On'
-                                      : 'Profile image ready for Virtual Try-On',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: LockMyLookUi.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: state.status == ProfileStatus.loading
-                                ? null
-                                : () => ref
-                                    .read(profileControllerProvider.notifier)
-                                    .deleteProfile(profile.id),
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: LockMyLookUi.muted,
-                            ),
-                          ),
-                          const Icon(
-                            Icons.chevron_right,
-                            color: LockMyLookUi.muted,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: _profileCard(profile, isLoading),
                 ),
               ),
           ],
@@ -266,11 +328,186 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
     );
   }
 
+  Widget _tryOnPhotoPicker() {
+    final photo = _selectedTryOnPhoto;
+    return InkWell(
+      onTap: _showPhotoSourcePicker,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 210,
+        decoration: BoxDecoration(
+          color: LockMyLookUi.background,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: LockMyLookUi.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: photo == null
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_a_photo_outlined,
+                    size: 36,
+                    color: LockMyLookUi.coral,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'Add Try-On Photo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: LockMyLookUi.ink,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Camera or Gallery',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: LockMyLookUi.muted,
+                    ),
+                  ),
+                ],
+              )
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.file(photo, fit: BoxFit.cover),
+                  Positioned(
+                    right: 10,
+                    top: 10,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.edit,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _profileCard(Profile profile, bool isLoading) {
+    final isEditing = _editingProfileId == profile.id;
+    final hasPhoto = profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: LockMyLookUi.cardDecoration(),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _avatar(profile.name, profile.avatarUrl),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: LockMyLookUi.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasPhoto
+                          ? 'Try-On photo ready'
+                          : 'Add a Try-On photo',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: LockMyLookUi.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: isLoading
+                    ? null
+                    : () => ref
+                        .read(profileControllerProvider.notifier)
+                        .deleteProfile(profile.id),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: LockMyLookUi.muted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () {
+                          setState(() {
+                            _editingProfileId = isEditing ? null : profile.id;
+                            _selectedTryOnPhoto = null;
+                          });
+                        },
+                  icon: Icon(
+                    isEditing
+                        ? Icons.close
+                        : Icons.add_a_photo_outlined,
+                  ),
+                  label: Text(isEditing ? 'Cancel' : 'Change Try-On Photo'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: isLoading
+                      ? null
+                      : () => context.push(
+                          AppRoutes.wardrobe,
+                          extra: profile.id,
+                        ),
+                  icon: const Icon(Icons.checkroom_outlined),
+                  label: const Text('Wardrobe'),
+                ),
+              ),
+            ],
+          ),
+          if (isEditing) ...[
+            const SizedBox(height: 12),
+            _tryOnPhotoPicker(),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: isLoading || _selectedTryOnPhoto == null
+                    ? null
+                    : () => _updateTryOnPhoto(profile.id),
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save Try-On Photo'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _avatar(String name, String? avatarUrl) {
     if (avatarUrl != null && avatarUrl.trim().isNotEmpty) {
       return ClipOval(
         child: Image.network(
-          avatarUrl,
+          _imageUrl(avatarUrl),
           width: 52,
           height: 52,
           fit: BoxFit.cover,
