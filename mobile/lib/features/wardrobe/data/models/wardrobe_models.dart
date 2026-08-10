@@ -17,10 +17,11 @@ class WardrobeCategory {
 class WardrobeImage {
   const WardrobeImage({
     required this.id,
-    required this.imageUrl,
-    required this.thumbnailUrl,
+    required String imageUrl,
+    required String thumbnailUrl,
     required this.displayOrder,
-  });
+  })  : _imageUrl = imageUrl,
+        _thumbnailUrl = thumbnailUrl;
 
   factory WardrobeImage.fromJson(Map<String, dynamic> json) {
     return WardrobeImage(
@@ -110,21 +111,15 @@ class WardrobeItem {
 
   final String id;
   final String profileId;
-
   final String name;
   final String? brand;
-
   final String? primaryColor;
   final String? secondaryColor;
-
   final String? season;
   final String? occasion;
-
   final bool favorite;
-
   final DateTime createdAt;
   final DateTime updatedAt;
-
   final WardrobeCategory category;
   final List<WardrobeImage> images;
 
