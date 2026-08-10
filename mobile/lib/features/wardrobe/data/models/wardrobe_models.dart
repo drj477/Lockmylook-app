@@ -17,17 +17,16 @@ class WardrobeCategory {
 class WardrobeImage {
   const WardrobeImage({
     required this.id,
-    required String imageUrl,
-    required String thumbnailUrl,
+    required this._imageUrl,
+    required this._thumbnailUrl,
     required this.displayOrder,
-  })  : _imageUrl = imageUrl,
-        _thumbnailUrl = thumbnailUrl;
+  });
 
   factory WardrobeImage.fromJson(Map<String, dynamic> json) {
     return WardrobeImage(
       id: json['id'] as String,
-      imageUrl: json['image_url'] as String,
-      thumbnailUrl: json['thumbnail_url'] as String,
+      _imageUrl: json['image_url'] as String,
+      _thumbnailUrl: json['thumbnail_url'] as String,
       displayOrder: json['display_order'] as int,
     );
   }
