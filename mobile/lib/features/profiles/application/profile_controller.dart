@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/features/profiles/application/profile_providers.dart';
@@ -76,6 +78,35 @@ class ProfileController extends Notifier<ProfileState> {
         errorMessage: _messageFromError(error),
       );
 
+      return false;
+    }
+  }
+
+  Future<bool> uploadTryOnPhoto({
+    required String profileId,
+    required File file,
+  }) async {
+    state = state.copyWith(status: ProfileStatus.loading, clearError: true);
+
+    try {
+      final updatedProfile = await _repository.uploadTryOnPhoto(
+        profileId: profileId,
+        file: file,
+      );
+
+      final profiles = state.profiles
+          .map(
+            (profile) => profile.id == profileId ? updatedProfile : profile,
+          )
+          .toList();
+
+      state = ProfileState(status: ProfileStatus.loaded, profiles: profiles);
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        status: ProfileStatus.error,
+        errorMessage: _messageFromError(error),
+      );
       return false;
     }
   }
