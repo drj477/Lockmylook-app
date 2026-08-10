@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:mobile/features/profiles/data/models/profile_models.dart';
 import 'package:mobile/features/profiles/data/profile_api.dart';
 
@@ -14,6 +16,13 @@ class ProfileRepository {
     return _profileApi.createProfile(
       ProfileCreateRequest(name: name, avatarUrl: avatarUrl),
     );
+  }
+
+  Future<Profile> uploadTryOnPhoto({
+    required String profileId,
+    required File file,
+  }) {
+    return _profileApi.uploadTryOnPhoto(profileId: profileId, file: file);
   }
 
   Future<Profile> getProfile(String profileId) {
