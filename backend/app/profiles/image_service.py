@@ -1,10 +1,8 @@
 from pathlib import Path
-from uuid import UUID
 
 from fastapi import UploadFile
 from sqlmodel import Session
 
-from app.core.exceptions import NotFoundError
 from app.profiles.model import Profile
 
 UPLOAD_DIR = Path("uploads/profiles")
