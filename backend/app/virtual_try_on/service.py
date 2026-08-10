@@ -10,6 +10,7 @@ from replicate.exceptions import ModelError
 from sqlmodel import Session
 
 from app.core.config import get_settings
+from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
 
@@ -60,7 +61,15 @@ class VirtualTryOnService:
                 ),
             )
 
-        person_path = self._resolve_local_path(profile.avatar_url)
+        # Profiles created before the transparent VTO asset was introduced are
+        # upgraded lazily the first time they are used for Virtual Try-On.
+        if not profile.vto_asset_url:
+            try:
+                profile = profile_image_service.ensure_vto_asset(session, profile)
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
+
+        person_path = self._resolve_local_path(profile.vto_asset_url)
 
         garment_paths: list[Path] = []
         garment_names: list[str] = []
@@ -80,17 +89,20 @@ class VirtualTryOnService:
             garment_names.append(item.name)
 
         prompt = (
-            "Dress the person in the supplied wardrobe garments. "
-            "Keep the person's face, body proportions, pose, skin tone, "
-            "hair and background as consistent as possible. "
+            "Dress the supplied person in the supplied wardrobe garments. "
+            "The person image has a transparent background and must be treated "
+            "as the identity and body reference. Keep the person's face, body "
+            "proportions, pose, skin tone and hair consistent. Do not add or "
+            "restore the original profile-photo background. "
             f"Use these garments in order: {', '.join(garment_names)}."
         )
 
         logger.info(
-            "Starting Virtual Try-On: profile={} garments={} model={}",
+            "Starting Virtual Try-On: profile={} garments={} model={} person_asset={}",
             profile.id,
             garment_names,
             self.MODEL,
+            person_path,
         )
 
         try:
@@ -183,9 +195,9 @@ class VirtualTryOnService:
         return result
 
     @staticmethod
-    def _resolve_local_path(value: str) -> Path:
+    def _resolve_local_path(value: str | None) -> Path:
         """Resolve the path format used by persisted upload records."""
-        raw = value.strip()
+        raw = (value or "").strip()
         if not raw:
             raise HTTPException(status_code=422, detail="Image path is empty.")
 
