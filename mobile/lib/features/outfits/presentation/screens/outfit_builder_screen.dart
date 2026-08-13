@@ -86,11 +86,11 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       return;
     }
 
-    if (_profile?.avatarUrl == null || _profile!.avatarUrl!.trim().isEmpty) {
+    if (_profile?.vtoAssetUrl == null || _profile!.vtoAssetUrl!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Add a profile image first. Virtual Try-On uses your profile image.',
+            'Add a profile image first. Virtual Try-On needs the processed VTO image.',
           ),
         ),
       );
@@ -707,7 +707,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   Widget _tryOnWorkspace() {
-    final avatarUrl = _profile?.avatarUrl;
+    final vtoAssetUrl = _profile?.vtoAssetUrl;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -773,17 +773,17 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                     child: Container(
                       margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F2F4),
+                        color: const Color(0xFFFFF8F0),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: avatarUrl != null &&
-                              avatarUrl.trim().isNotEmpty
+                      child: vtoAssetUrl != null &&
+                              vtoAssetUrl.trim().isNotEmpty
                           ? Stack(
                               fit: StackFit.expand,
                               children: [
                                 Image.network(
-                                  avatarUrl,
+                                  vtoAssetUrl,
                                   fit: BoxFit.contain,
                                   alignment: Alignment.center,
                                   errorBuilder: (_, _, _) =>
