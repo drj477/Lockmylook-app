@@ -1,0 +1,72 @@
+name: Apply VTO preview fix
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch VTO preview
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('mobile/lib/features/outfits/presentation/screens/outfit_builder_screen.dart')
+          text = path.read_text()
+
+          replacements = [
+              (
+                  """if (_profile?.avatarUrl == null || _profile!.avatarUrl!.trim().isEmpty) {\n      ScaffoldMessenger.of(context).showSnackBar(\n        const SnackBar(\n          content: Text(\n            'Add a profile image first. Virtual Try-On uses your profile image.',\n          ),\n        ),\n      );\n      return;\n    }""",
+                  """if (_profile?.vtoAssetUrl == null || _profile!.vtoAssetUrl!.trim().isEmpty) {\n      ScaffoldMessenger.of(context).showSnackBar(\n        const SnackBar(\n          content: Text(\n            'Add a profile image first. Virtual Try-On needs the processed VTO image.',\n          ),\n        ),\n      );\n      return;\n    }""",
+              ),
+              (
+                  """    final avatarUrl = _profile?.avatarUrl;""",
+                  """    final vtoAssetUrl = _profile?.vtoAssetUrl;""",
+              ),
+              (
+                  """                        color: const Color(0xFFF1F2F4),""",
+                  """                        color: const Color(0xFFFFF8F0),""",
+              ),
+              (
+                  """                      child: avatarUrl != null &&\n                              avatarUrl.trim().isNotEmpty\n                          ? Stack(""",
+                  """                      child: vtoAssetUrl != null &&\n                              vtoAssetUrl.trim().isNotEmpty\n                          ? Stack(""",
+              ),
+              (
+                  """                                  avatarUrl,\n                                  fit: BoxFit.contain,""",
+                  """                                  vtoAssetUrl,\n                                  fit: BoxFit.contain,""",
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Expected source pattern not found: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Verify Flutter source
+        run: |
+          grep -n "vtoAssetUrl" mobile/lib/features/outfits/presentation/screens/outfit_builder_screen.dart
+          grep -n "FFFFF8F0" mobile/lib/features/outfits/presentation/screens/outfit_builder_screen.dart || true
+
+      - name: Commit fix and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-vto-preview-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/lib/features/outfits/presentation/screens/outfit_builder_screen.dart .github/workflows/apply-vto-preview-fix.yml
+          git diff --cached --check
+          git commit -m "fix: use processed VTO profile asset in preview"
+          git push origin HEAD:master
