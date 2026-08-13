@@ -49,6 +49,12 @@ class ProfileApi {
     final response = await _apiClient.postMultipart(
       '${ApiEndpoints.profiles}/$profileId/try-on-photo',
       data: formData,
+      options: Options(
+        // Profile image processing includes local human segmentation before
+        // the backend can return the updated profile.
+        receiveTimeout: const Duration(seconds: 90),
+        sendTimeout: const Duration(seconds: 30),
+      ),
     );
 
     final envelope = response.data as Map<String, dynamic>;
