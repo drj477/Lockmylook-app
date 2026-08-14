@@ -33,6 +33,8 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    // A retry already carries the freshly-issued access token. Do not replace
+    // it with a token read concurrently from secure storage.
     final isRetry = options.extra[_retryKey] == true;
     if (!isRetry) {
       final accessToken = await _secureStorage.getAccessToken();
@@ -61,30 +63,41 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    // Never refresh twice for the same request. If the freshly-issued token
+    // is also rejected, the session is genuinely invalid.
     if (options.extra[_retryKey] == true) {
       await _secureStorage.clearTokens();
       handler.next(err);
       return;
     }
 
+    final newAccessToken = await _refreshAccessToken();
+    if (newAccessToken == null || newAccessToken.isEmpty) {
+      await _secureStorage.clearTokens();
+      handler.next(err);
+      return;
+    }
+
+    options.extra[_retryKey] = true;
+    options.headers['Authorization'] = 'Bearer $newAccessToken';
+
     try {
-      final newAccessToken = await _refreshAccessToken();
-
-      if (newAccessToken == null || newAccessToken.isEmpty) {
-        await _secureStorage.clearTokens();
-        handler.next(err);
-        return;
-      }
-
-      options.extra[_retryKey] = true;
-      options.headers['Authorization'] = 'Bearer $newAccessToken';
+      // Multipart bodies are streams and cannot safely be replayed after the
+      // first request has consumed them.
       await _rebuildRetryBody(options);
 
       final response = await _dio.fetch(options);
       handler.resolve(response);
-    } catch (_) {
-      await _secureStorage.clearTokens();
-      handler.next(err);
+    } on DioException catch (retryError) {
+      handler.next(retryError);
+    } catch (retryError) {
+      handler.next(
+        DioException(
+          requestOptions: options,
+          error: retryError,
+          type: DioExceptionType.unknown,
+        ),
+      );
     }
   }
 
