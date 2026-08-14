@@ -89,11 +89,15 @@ class VirtualTryOnService:
             garment_names.append(item.name)
 
         prompt = (
-            "Dress the supplied person in the supplied wardrobe garments. "
-            "The person image has a transparent background and must be treated "
-            "as the identity and body reference. Keep the person's face, body "
-            "proportions, pose, skin tone and hair consistent. Do not add or "
-            "restore the original profile-photo background. "
+            "Photorealistic virtual try-on. Dress the supplied person in the "
+            "supplied wardrobe garments while preserving the person's identity, "
+            "face, hair, skin tone, body proportions, pose, hands, legs and feet. "
+            "Use the garment images as the exact visual reference for color, "
+            "pattern, material, fit and construction. Produce a natural camera "
+            "photograph with sharp fabric texture, realistic folds, clean edges, "
+            "consistent lighting and accurate anatomy. Do not invent accessories, "
+            "change the person's body, alter their face, or restore any original "
+            "profile-photo background. "
             f"Use these garments in order: {', '.join(garment_names)}."
         )
 
@@ -120,10 +124,12 @@ class VirtualTryOnService:
                         "person_image": person_file,
                         "garment_images": garment_files,
                         "prompt": prompt,
-                        "turbo": len(items) <= 4,
+                        # Prefer the quality path. Turbo is an optimization for
+                        # speed; this endpoint is explicitly quality-first.
+                        "turbo": False,
                         "preserve_input_size": True,
-                        "output_format": "jpg",
-                        "output_quality": 95,
+                        "output_format": "webp",
+                        "output_quality": 100,
                     },
                     wait=60,
                 )
@@ -172,7 +178,7 @@ class VirtualTryOnService:
         output_dir = Path("uploads/tryon")
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{profile.id}-{uuid4()}.jpg"
+        filename = f"{profile.id}-{uuid4()}.webp"
         output_path = output_dir / filename
         output_path.write_bytes(output_bytes)
 
