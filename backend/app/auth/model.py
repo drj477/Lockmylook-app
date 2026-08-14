@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import DateTime
 from sqlmodel import Field, SQLModel
 
 
@@ -17,4 +18,7 @@ class Account(SQLModel, table=True):
     email: str = Field(unique=True, index=True, nullable=False)
     hashed_password: str = Field(nullable=False)
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_type=DateTime(timezone=True),
+    )

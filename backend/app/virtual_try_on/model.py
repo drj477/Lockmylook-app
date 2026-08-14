@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from sqlalchemy import DateTime
 from sqlmodel import Field, SQLModel
 
 
@@ -14,5 +15,6 @@ class VirtualTryOnResult(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         nullable=False,
+        sa_type=DateTime(timezone=True),
     )
     saved: bool = Field(default=False, nullable=False)
