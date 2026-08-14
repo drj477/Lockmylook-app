@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -14,7 +14,7 @@ class WardrobeCategory(SQLModel, table=True):
     is_system: bool = Field(default=False)
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
     items: list["WardrobeItem"] = Relationship(
@@ -59,11 +59,11 @@ class WardrobeItem(SQLModel, table=True):
     is_deleted: bool = Field(default=False)
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
     category: WardrobeCategory = Relationship(
@@ -93,7 +93,7 @@ class WardrobeImage(SQLModel, table=True):
     display_order: int = Field(default=0)
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
     item: WardrobeItem = Relationship(

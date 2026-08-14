@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 import sqlmodel
+
 from alembic import op
 
 revision: str = "207b78c81ae0"

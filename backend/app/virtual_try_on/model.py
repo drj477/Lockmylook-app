@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -12,7 +12,7 @@ class VirtualTryOnResult(SQLModel, table=True):
     image_url: str = Field(nullable=False)
     item_ids_json: str = Field(nullable=False)
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         nullable=False,
     )
     saved: bool = Field(default=False, nullable=False)

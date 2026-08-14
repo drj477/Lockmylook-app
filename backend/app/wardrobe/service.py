@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlmodel import Session, select
@@ -109,7 +109,7 @@ class WardrobeService:
         for field, value in updates.items():
             setattr(item, field, value)
 
-        item.updated_at = datetime.now(timezone.utc)
+        item.updated_at = datetime.now(UTC)
 
         session.add(item)
         session.commit()
@@ -131,7 +131,7 @@ class WardrobeService:
         )
 
         item.is_deleted = True
-        item.updated_at = datetime.now(timezone.utc)
+        item.updated_at = datetime.now(UTC)
 
         session.add(item)
         session.commit()

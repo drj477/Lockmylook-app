@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -16,4 +16,4 @@ class Profile(SQLModel, table=True):
     name: str = Field(nullable=False)
     avatar_url: str | None = Field(default=None)
     vto_asset_url: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

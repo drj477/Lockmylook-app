@@ -1,15 +1,14 @@
 """update system categories
 
 Revision ID: <NEW_REVISION_ID>
-Revises: 9f750f6d5ad4
+Revises: 20260810_profile_vto_asset
 """
 
-from collections.abc import Sequence
 
 from alembic import op
 
 revision = "<NEW_REVISION_ID>"
-down_revision = "9f750f6d5ad4"
+down_revision = "20260810_profile_vto_asset"
 branch_labels = None
 depends_on = None
 

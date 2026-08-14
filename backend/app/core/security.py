@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
@@ -35,7 +35,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 # ---------------------------------------------------------------------------
 def create_token(account_id: UUID, token_type: TokenType) -> str:
     settings = get_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if token_type == TokenType.ACCESS:
         expires_at = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

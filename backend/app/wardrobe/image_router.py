@@ -32,7 +32,7 @@ async def upload_image(
     session: Session = Depends(get_session),
 ) -> Envelope[ImageRead]:
 
-    profile = get_owned_profile(
+    get_owned_profile(
         session=session,
         account_id=current_account.id,
         profile_id=profile_id,

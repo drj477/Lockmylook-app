@@ -251,16 +251,16 @@ class VirtualTryOnService:
         if hasattr(output, "read"):
             return output.read()
 
-        if isinstance(output, (list, tuple)):
+        if isinstance(output, list | tuple):
             if not output:
                 return b""
             first = output[0]
             if hasattr(first, "read"):
                 return first.read()
-            if isinstance(first, (bytes, bytearray)):
+            if isinstance(first, bytes | bytearray):
                 return bytes(first)
 
-        if isinstance(output, (bytes, bytearray)):
+        if isinstance(output, bytes | bytearray):
             return bytes(output)
 
         raise RuntimeError(

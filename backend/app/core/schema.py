@@ -1,11 +1,11 @@
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T")
 
 
-class Envelope(BaseModel, Generic[T]):
+class Envelope[T](BaseModel):
     """The standard shape for every API response, success or error:
     {"success": bool, "message": str, "data": ..., "errors": [...]}
 

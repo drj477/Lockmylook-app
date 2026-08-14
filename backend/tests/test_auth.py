@@ -1,3 +1,4 @@
+from datetime import UTC
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -96,13 +97,13 @@ def test_invalid_signature_rejected(client: TestClient):
 
 
 def test_expired_token_rejected(client: TestClient, monkeypatch):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.core import security
 
     # Force create_token to mint an already-expired access token.
     def expired_create_token(account_id, token_type):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "sub": str(account_id),
             "type": token_type.value,
