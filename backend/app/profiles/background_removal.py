@@ -92,6 +92,37 @@ def _crop_bbox_with_padding(image, padding_ratio: float = 0.04):
     return image.crop((left, top, right, bottom))
 
 
+def crop_transparent_margins(image_bytes: bytes) -> bytes:
+    """Rebuild an existing transparent VTO asset using the current framing rules.
+
+    This is used for older profiles whose VTO asset was created before the
+    current background-removal pipeline existed. It intentionally does not
+    rerun segmentation; it only finds the meaningful alpha bounds and applies
+    the same normalized 1024x1536 canvas used for newly uploaded images.
+    """
+    from PIL import Image
+
+    if not image_bytes:
+        raise ValueError("VTO image cannot be empty.")
+
+    with Image.open(io.BytesIO(image_bytes)).convert("RGBA") as image:
+        image.putalpha(_clean_alpha(image.getchannel("A")))
+        cropped = _crop_bbox_with_padding(image)
+        normalized = _normalize_vto_canvas(cropped)
+
+        if normalized.getchannel("A").getbbox() is None:
+            raise RuntimeError("Transparent VTO asset contains no visible subject.")
+
+        result = io.BytesIO()
+        normalized.save(
+            result,
+            format="PNG",
+            optimize=True,
+            compress_level=6,
+        )
+        return result.getvalue()
+
+
 def _resize_premultiplied(image, size):
     """Resize RGBA without pulling transparent-background RGB into the edges."""
     import numpy as np
@@ -114,8 +145,6 @@ def _resize_premultiplied(image, size):
     alpha_array = np.asarray(resized_alpha, dtype=np.float32)
     alpha_fraction = alpha_array / 255.0
 
-    # Unpremultiply only where alpha is non-zero. This restores the original
-    # foreground colours while keeping transparent pixels black/irrelevant.
     safe_alpha = np.maximum(alpha_fraction, 1.0 / 255.0)
     restored = np.clip(rgb_array / safe_alpha[:, :, None], 0, 255).astype(np.uint8)
     restored[alpha_array == 0] = 0
@@ -146,8 +175,6 @@ def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
         max(1, round(subject_height * scale)),
     )
 
-    # Never use a normal RGBA resize here; premultiplied resampling prevents
-    # transparent-background colour contamination at the silhouette boundary.
     image = _resize_premultiplied(image, new_size)
 
     canvas = Image.new("RGBA", target_size, (0, 0, 0, 0))
@@ -181,8 +208,6 @@ def remove_background(image_bytes: bytes) -> bytes:
     output = remove(
         segmentation_input,
         session=_get_session(),
-        # BiRefNet already provides a high-resolution alpha matte. Running the
-        # older pymatting stage after it can soften the silhouette unnecessarily.
         alpha_matting=False,
         post_process_mask=False,
         force_return_bytes=True,
