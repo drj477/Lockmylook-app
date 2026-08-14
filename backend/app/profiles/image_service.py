@@ -3,7 +3,10 @@ from pathlib import Path
 from fastapi import UploadFile
 from sqlmodel import Session
 
-from app.profiles.background_removal import remove_background
+from app.profiles.background_removal import (
+    crop_transparent_margins,
+    remove_background,
+)
 from app.profiles.model import Profile
 
 UPLOAD_DIR = Path("uploads/profiles")
@@ -65,11 +68,25 @@ class ProfileImageService:
         return profile
 
     def ensure_vto_asset(self, session: Session, profile: Profile) -> Profile:
-        """Create the VTO asset for an older profile uploaded before this feature."""
+        """Ensure an older profile has a tightly cropped VTO asset."""
         if profile.vto_asset_url:
             path = Path(profile.vto_asset_url)
+            if not path.is_absolute():
+                path = Path.cwd() / path
+            path = path.resolve()
+
             if path.exists() and path.is_file() and path.stat().st_size > 0:
-                return profile
+                try:
+                    cropped = crop_transparent_margins(path.read_bytes())
+                    path.write_bytes(cropped)
+                    profile.vto_asset_url = str(path)
+                    session.add(profile)
+                    session.commit()
+                    session.refresh(profile)
+                    return profile
+                except Exception:
+                    # Fall through and rebuild from the original profile image.
+                    pass
 
         if not profile.avatar_url:
             raise ValueError("Add a profile image before using Virtual Try-On.")
