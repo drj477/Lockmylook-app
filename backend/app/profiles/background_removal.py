@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 from pathlib import Path
 from threading import Lock
@@ -30,8 +31,43 @@ def _get_session():
     return _session
 
 
+def _crop_to_person(image_bytes: bytes, padding_ratio: float = 0.06) -> bytes:
+    """Crop transparent margins around the detected person.
+
+    Background removal returns a transparent PNG, but the original image
+    canvas can be much larger than the person's actual bounding box. Cropping
+    that empty alpha area makes the person occupy the useful preview area in
+    the mobile app without using BoxFit.cover or cutting off body parts.
+    """
+    from PIL import Image, ImageChops
+
+    with Image.open(io.BytesIO(image_bytes)).convert("RGBA") as image:
+        alpha = image.getchannel("A")
+        bbox = alpha.getbbox()
+
+        if bbox is None:
+            raise RuntimeError("Background removal did not detect a person.")
+
+        left, top, right, bottom = bbox
+        width = right - left
+        height = bottom - top
+
+        pad_x = max(8, int(width * padding_ratio))
+        pad_y = max(8, int(height * padding_ratio))
+
+        left = max(0, left - pad_x)
+        top = max(0, top - pad_y)
+        right = min(image.width, right + pad_x)
+        bottom = min(image.height, bottom + pad_y)
+
+        cropped = image.crop((left, top, right, bottom))
+        output = io.BytesIO()
+        cropped.save(output, format="PNG", optimize=True)
+        return output.getvalue()
+
+
 def remove_background(image_bytes: bytes) -> bytes:
-    """Return a transparent PNG containing the detected person only.
+    """Return a tightly cropped transparent PNG containing the detected person.
 
     The model runs locally through ONNX Runtime. The model weights are cached
     under backend/models after the first download and are reused for future
@@ -52,4 +88,4 @@ def remove_background(image_bytes: bytes) -> bytes:
     if not output:
         raise RuntimeError("Background removal returned an empty image.")
 
-    return output
+    return _crop_to_person(output)
