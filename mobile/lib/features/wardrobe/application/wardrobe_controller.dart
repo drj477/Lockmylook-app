@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mobile/features/profiles/application/profile_providers.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 import 'package:mobile/features/wardrobe/data/wardrobe_repository.dart';
@@ -62,6 +63,11 @@ class WardrobeController extends Notifier<WardrobeState> {
 
     try {
       final items = await _repository.listItems(profileId);
+
+      // Profile-scoped navigation currently uses the first profile as the
+      // active-profile fallback. Keep that fallback synchronized with the
+      // profile whose wardrobe was just opened/loaded.
+      ref.read(profileControllerProvider.notifier).selectProfile(profileId);
 
       state = WardrobeState(
         status: WardrobeStatus.loaded,
