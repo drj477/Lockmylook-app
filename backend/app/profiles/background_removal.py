@@ -8,8 +8,6 @@ from threading import Lock
 MODEL_NAME = "u2net_human_seg"
 MODEL_DIR = Path(__file__).resolve().parents[2] / "models"
 
-# Keep model weights inside the backend workspace so inference stays local
-# after the first download.
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("U2NET_HOME", str(MODEL_DIR))
 
@@ -35,21 +33,10 @@ def _clean_alpha(alpha):
     """Remove weak fringe pixels while preserving strong subject detail."""
     from PIL import ImageFilter
 
-    # Very low alpha is almost always background spill. Removing it first is
-    # important for hair halos and the translucent pixels around feet.
     alpha = alpha.point(lambda value: 0 if value < 32 else value)
-
-    # Remove isolated segmentation speckles without aggressively shrinking
-    # the person mask.
     alpha = alpha.filter(ImageFilter.MedianFilter(size=3))
-
-    # A small minimum filter trims a one-pixel translucent fringe while still
-    # retaining the strong interior of hands, clothing, legs, and shoes.
     alpha = alpha.filter(ImageFilter.MinFilter(size=3))
-
-    # Restore a small amount of natural anti-aliasing after the edge cleanup.
     alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.18))
-
     return alpha
 
 
@@ -95,45 +82,45 @@ def crop_transparent_margins(image_bytes: bytes, padding_ratio: float = 0.06) ->
 
 
 def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
-    """Place the person on a predictable transparent full-body VTO canvas."""
+    """Place the person large on a predictable transparent full-body VTO canvas."""
     from PIL import Image
 
     target_width, target_height = target_size
-
     subject_width, subject_height = image.size
+
+    # The previous version preserved the cropped image at its original size,
+    # leaving too much transparent canvas around the person. Scale the cropped
+    # subject up so the body occupies most of the VTO frame.
+    target_subject_height = int(target_height * 0.88)
+    target_subject_width = int(target_width * 0.82)
     scale = min(
-        target_width / subject_width,
-        target_height / subject_height,
-        1.0,
+        target_subject_width / subject_width,
+        target_subject_height / subject_height,
     )
 
-    if scale != 1.0:
-        image = image.resize(
-            (
-                max(1, round(subject_width * scale)),
-                max(1, round(subject_height * scale)),
-            ),
-            Image.Resampling.LANCZOS,
-        )
+    image = image.resize(
+        (
+            max(1, round(subject_width * scale)),
+            max(1, round(subject_height * scale)),
+        ),
+        Image.Resampling.LANCZOS,
+    )
 
     canvas = Image.new("RGBA", target_size, (0, 0, 0, 0))
 
-    # Keep the improved framing from the previous iteration: centered body,
-    # controlled headroom, and enough room below the feet.
     x = (target_width - image.width) // 2
-    y = max(0, int((target_height - image.height) * 0.38))
+    # Keep a small amount of headroom while retaining the full feet.
+    y = max(0, int(target_height * 0.06))
+
+    if y + image.height > target_height:
+        y = target_height - image.height
 
     canvas.alpha_composite(image, (x, y))
     return canvas
 
 
 def remove_background(image_bytes: bytes) -> bytes:
-    """Return a clean, normalized transparent full-body VTO PNG.
-
-    The pipeline uses the human-specific U2Net segmentation model, then
-    performs stronger alpha cleanup, tight subject cropping, proportional
-    padding, and deterministic 1024x1536 canvas normalization.
-    """
+    """Return a clean, large, normalized transparent full-body VTO PNG."""
     if not image_bytes:
         raise ValueError("Profile photo cannot be empty.")
 
