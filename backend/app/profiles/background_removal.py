@@ -94,53 +94,36 @@ def _crop_bbox_with_padding(image, padding_ratio: float = 0.04):
 
 def _resize_premultiplied(image, size):
     """Resize RGBA without pulling transparent-background RGB into the edges."""
+    import numpy as np
     from PIL import Image
 
-    rgba = image.convert("RGBA")
-    rgb = rgba.convert("RGB")
-    alpha = rgba.getchannel("A")
+    rgba = np.asarray(image.convert("RGBA"), dtype=np.float32)
+    alpha = rgba[:, :, 3:4] / 255.0
+    premultiplied = np.round(rgba[:, :, :3] * alpha).astype(np.uint8)
 
-    # Premultiply RGB by alpha before resampling. Direct RGBA resizing can mix
-    # hidden background RGB into edge pixels and create bright/dark halos.
-    rgb_pixels = rgb.load()
-    alpha_pixels = alpha.load()
-    premultiplied = Image.new("RGB", rgba.size)
-    out_pixels = premultiplied.load()
+    rgb = Image.fromarray(premultiplied, mode="RGB").resize(
+        size,
+        Image.Resampling.LANCZOS,
+    )
+    resized_alpha = Image.fromarray(
+        rgba[:, :, 3].astype(np.uint8),
+        mode="L",
+    ).resize(size, Image.Resampling.LANCZOS)
 
-    for y in range(rgba.height):
-        for x in range(rgba.width):
-            a = alpha_pixels[x, y] / 255.0
-            r, g, b = rgb_pixels[x, y]
-            out_pixels[x, y] = (
-                round(r * a),
-                round(g * a),
-                round(b * a),
-            )
+    rgb_array = np.asarray(rgb, dtype=np.float32)
+    alpha_array = np.asarray(resized_alpha, dtype=np.float32)
+    alpha_fraction = alpha_array / 255.0
 
-    premultiplied = premultiplied.resize(size, Image.Resampling.LANCZOS)
-    alpha = alpha.resize(size, Image.Resampling.LANCZOS)
+    # Unpremultiply only where alpha is non-zero. This restores the original
+    # foreground colours while keeping transparent pixels black/irrelevant.
+    safe_alpha = np.maximum(alpha_fraction, 1.0 / 255.0)
+    restored = np.clip(rgb_array / safe_alpha[:, :, None], 0, 255).astype(np.uint8)
+    restored[alpha_array == 0] = 0
 
-    result = Image.new("RGBA", size)
-    result_rgb = result.load()
-    result_alpha = alpha.load()
-    source_rgb = premultiplied.load()
-
-    for y in range(size[1]):
-        for x in range(size[0]):
-            a = result_alpha[x, y]
-            if a == 0:
-                result_rgb[x, y] = (0, 0, 0)
-                continue
-
-            scale = 255.0 / a
-            r, g, b = source_rgb[x, y]
-            result_rgb[x, y] = (
-                min(255, round(r * scale)),
-                min(255, round(g * scale)),
-                min(255, round(b * scale)),
-            )
-
-    result.putalpha(alpha)
+    result = Image.fromarray(
+        np.dstack((restored, alpha_array.astype(np.uint8))),
+        mode="RGBA",
+    )
     return result
 
 
