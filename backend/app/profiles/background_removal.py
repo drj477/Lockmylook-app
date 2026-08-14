@@ -41,9 +41,20 @@ def _clean_alpha(alpha):
 
 
 def _crop_bbox_with_padding(image, padding_ratio: float = 0.06):
-    """Crop to the visible subject and add proportional transparent padding."""
+    """Crop around the real foreground instead of any faint alpha spill."""
     alpha = image.getchannel("A")
-    bbox = alpha.getbbox()
+
+    # Image.getbbox() considers every non-zero alpha pixel foreground. Even a
+    # tiny amount of segmentation spill can therefore make the crop enormous,
+    # which causes the person to appear tiny when Flutter uses BoxFit.contain.
+    # Use a stronger threshold for the *bbox only*; the original alpha remains
+    # untouched so fine hair/edge detail is not discarded.
+    bbox_mask = alpha.point(lambda value: 255 if value >= 96 else 0)
+    bbox = bbox_mask.getbbox()
+
+    if bbox is None:
+        # Fall back to the cleaned alpha mask if the threshold was too strict.
+        bbox = alpha.getbbox()
 
     if bbox is None:
         raise RuntimeError("Background removal did not detect a person.")
@@ -88,9 +99,9 @@ def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
     target_width, target_height = target_size
     subject_width, subject_height = image.size
 
-    # The previous version preserved the cropped image at its original size,
-    # leaving too much transparent canvas around the person. Scale the cropped
-    # subject up so the body occupies most of the VTO frame.
+    # Make the detected subject occupy most of the VTO frame. The crop is now
+    # based on meaningful alpha, so transparent background spill cannot shrink
+    # the person during this normalization step.
     target_subject_height = int(target_height * 0.88)
     target_subject_width = int(target_width * 0.82)
     scale = min(
@@ -109,7 +120,6 @@ def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
     canvas = Image.new("RGBA", target_size, (0, 0, 0, 0))
 
     x = (target_width - image.width) // 2
-    # Keep a small amount of headroom while retaining the full feet.
     y = max(0, int(target_height * 0.06))
 
     if y + image.height > target_height:
