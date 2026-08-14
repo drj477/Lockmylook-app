@@ -95,7 +95,8 @@ class _VirtualTryOnResultScreenState
               clipBehavior: Clip.antiAlias,
               child: Image.network(
                 widget.result.imageUrl,
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
 
