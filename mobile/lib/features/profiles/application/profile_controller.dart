@@ -56,6 +56,28 @@ class ProfileController extends Notifier<ProfileState> {
     }
   }
 
+  /// Make the profile used most recently by a profile-scoped feature the
+  /// active profile. The rest of the app already uses the first profile as
+  /// its active-profile fallback, so keeping the selected profile first keeps
+  /// those existing navigation paths profile-correct without introducing a
+  /// second source of truth.
+  void selectProfile(String profileId) {
+    final index = state.profiles.indexWhere((profile) => profile.id == profileId);
+
+    if (index <= 0) {
+      return;
+    }
+
+    final selected = state.profiles[index];
+    final profiles = <Profile>[
+      selected,
+      ...state.profiles.take(index),
+      ...state.profiles.skip(index + 1),
+    ];
+
+    state = state.copyWith(profiles: profiles);
+  }
+
   Future<bool> createProfile({required String name, String? avatarUrl}) async {
     state = state.copyWith(status: ProfileStatus.loading, clearError: true);
 
