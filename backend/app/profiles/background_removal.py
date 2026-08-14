@@ -31,15 +31,9 @@ def _get_session():
     return _session
 
 
-def _crop_to_person(image_bytes: bytes, padding_ratio: float = 0.06) -> bytes:
-    """Crop transparent margins around the detected person.
-
-    Background removal returns a transparent PNG, but the original image
-    canvas can be much larger than the person's actual bounding box. Cropping
-    that empty alpha area makes the person occupy the useful preview area in
-    the mobile app without using BoxFit.cover or cutting off body parts.
-    """
-    from PIL import Image, ImageChops
+def crop_transparent_margins(image_bytes: bytes, padding_ratio: float = 0.06) -> bytes:
+    """Crop transparent margins around the detected person in a PNG."""
+    from PIL import Image
 
     with Image.open(io.BytesIO(image_bytes)).convert("RGBA") as image:
         alpha = image.getchannel("A")
@@ -88,4 +82,4 @@ def remove_background(image_bytes: bytes) -> bytes:
     if not output:
         raise RuntimeError("Background removal returned an empty image.")
 
-    return _crop_to_person(output)
+    return crop_transparent_margins(output)
