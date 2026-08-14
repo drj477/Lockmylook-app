@@ -5,55 +5,68 @@ import os
 from pathlib import Path
 from threading import Lock
 
-MODEL_NAME = "u2net_human_seg"
+from loguru import logger
+
+# BiRefNet portrait uses a much higher-resolution segmentation pipeline than
+# u2net_human_seg and is better suited to hair, clothing boundaries and feet.
+# rembg currently ships this model alongside the U2Net family.
+PRIMARY_MODEL_NAME = "birefnet-portrait"
+FALLBACK_MODEL_NAME = "u2net_human_seg"
 MODEL_DIR = Path(__file__).resolve().parents[2] / "models"
 
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("U2NET_HOME", str(MODEL_DIR))
 
 _session = None
+_session_model_name: str | None = None
 _session_lock = Lock()
 
 
 def _get_session():
-    """Create the human-segmentation session once and reuse it."""
-    global _session
+    """Create the best available portrait segmentation session once and reuse it."""
+    global _session, _session_model_name
 
     if _session is None:
         with _session_lock:
             if _session is None:
                 from rembg import new_session
 
-                _session = new_session(MODEL_NAME)
+                try:
+                    _session = new_session(PRIMARY_MODEL_NAME)
+                    _session_model_name = PRIMARY_MODEL_NAME
+                    logger.info("VTO background remover: using {}", PRIMARY_MODEL_NAME)
+                except Exception as error:
+                    logger.warning(
+                        "Could not initialize {} ({}); falling back to {}",
+                        PRIMARY_MODEL_NAME,
+                        error,
+                        FALLBACK_MODEL_NAME,
+                    )
+                    _session = new_session(FALLBACK_MODEL_NAME)
+                    _session_model_name = FALLBACK_MODEL_NAME
+                    logger.info("VTO background remover: using {}", FALLBACK_MODEL_NAME)
 
     return _session
 
 
 def _clean_alpha(alpha):
-    """Remove weak fringe pixels while preserving strong subject detail."""
-    from PIL import ImageFilter
-
-    alpha = alpha.point(lambda value: 0 if value < 32 else value)
-    alpha = alpha.filter(ImageFilter.MedianFilter(size=3))
-    alpha = alpha.filter(ImageFilter.MinFilter(size=3))
-    alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.18))
-    return alpha
+    """Remove only invisible fringe; preserve the model's native alpha matte."""
+    # Do NOT blur, median-filter, or erode the complete matte here. Those
+    # operations soften hair, fingers, shoe/foot contours and garment edges.
+    # BiRefNet already produces a continuous alpha matte; preserve it.
+    return alpha.point(lambda value: 0 if value < 12 else value)
 
 
-def _crop_bbox_with_padding(image, padding_ratio: float = 0.06):
-    """Crop around the real foreground instead of any faint alpha spill."""
+def _crop_bbox_with_padding(image, padding_ratio: float = 0.04):
+    """Crop around meaningful foreground alpha while retaining a small safety margin."""
     alpha = image.getchannel("A")
 
-    # Image.getbbox() considers every non-zero alpha pixel foreground. Even a
-    # tiny amount of segmentation spill can therefore make the crop enormous,
-    # which causes the person to appear tiny when Flutter uses BoxFit.contain.
-    # Use a stronger threshold for the *bbox only*; the original alpha remains
-    # untouched so fine hair/edge detail is not discarded.
-    bbox_mask = alpha.point(lambda value: 255 if value >= 96 else 0)
+    # Ignore only weak fringe when calculating the bbox. The original alpha is
+    # retained so fine hair and semi-transparent edge detail remain intact.
+    bbox_mask = alpha.point(lambda value: 255 if value >= 64 else 0)
     bbox = bbox_mask.getbbox()
 
     if bbox is None:
-        # Fall back to the cleaned alpha mask if the threshold was too strict.
         bbox = alpha.getbbox()
 
     if bbox is None:
@@ -68,8 +81,8 @@ def _crop_bbox_with_padding(image, padding_ratio: float = 0.06):
             f"Detected person is unexpectedly small: {width}x{height}."
         )
 
-    pad_x = max(12, int(width * padding_ratio))
-    pad_y = max(12, int(height * padding_ratio))
+    pad_x = max(10, int(width * padding_ratio))
+    pad_y = max(10, int(height * padding_ratio))
 
     left = max(0, left - pad_x)
     top = max(0, top - pad_y)
@@ -79,29 +92,65 @@ def _crop_bbox_with_padding(image, padding_ratio: float = 0.06):
     return image.crop((left, top, right, bottom))
 
 
-def crop_transparent_margins(image_bytes: bytes, padding_ratio: float = 0.06) -> bytes:
-    """Return a tightly cropped transparent PNG around the detected person."""
+def _resize_premultiplied(image, size):
+    """Resize RGBA without pulling transparent-background RGB into the edges."""
     from PIL import Image
 
-    with Image.open(io.BytesIO(image_bytes)).convert("RGBA") as image:
-        image.putalpha(_clean_alpha(image.getchannel("A")))
-        cropped = _crop_bbox_with_padding(image, padding_ratio)
+    rgba = image.convert("RGBA")
+    rgb = rgba.convert("RGB")
+    alpha = rgba.getchannel("A")
 
-        output = io.BytesIO()
-        cropped.save(output, format="PNG", optimize=True)
-        return output.getvalue()
+    # Premultiply RGB by alpha before resampling. Direct RGBA resizing can mix
+    # hidden background RGB into edge pixels and create bright/dark halos.
+    rgb_pixels = rgb.load()
+    alpha_pixels = alpha.load()
+    premultiplied = Image.new("RGB", rgba.size)
+    out_pixels = premultiplied.load()
+
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            a = alpha_pixels[x, y] / 255.0
+            r, g, b = rgb_pixels[x, y]
+            out_pixels[x, y] = (
+                round(r * a),
+                round(g * a),
+                round(b * a),
+            )
+
+    premultiplied = premultiplied.resize(size, Image.Resampling.LANCZOS)
+    alpha = alpha.resize(size, Image.Resampling.LANCZOS)
+
+    result = Image.new("RGBA", size)
+    result_rgb = result.load()
+    result_alpha = alpha.load()
+    source_rgb = premultiplied.load()
+
+    for y in range(size[1]):
+        for x in range(size[0]):
+            a = result_alpha[x, y]
+            if a == 0:
+                result_rgb[x, y] = (0, 0, 0)
+                continue
+
+            scale = 255.0 / a
+            r, g, b = source_rgb[x, y]
+            result_rgb[x, y] = (
+                min(255, round(r * scale)),
+                min(255, round(g * scale)),
+                min(255, round(b * scale)),
+            )
+
+    result.putalpha(alpha)
+    return result
 
 
 def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
-    """Place the person large on a predictable transparent full-body VTO canvas."""
+    """Place a sharp full-body person on a predictable transparent VTO canvas."""
     from PIL import Image
 
     target_width, target_height = target_size
     subject_width, subject_height = image.size
 
-    # Make the detected subject occupy most of the VTO frame. The crop is now
-    # based on meaningful alpha, so transparent background spill cannot shrink
-    # the person during this normalization step.
     target_subject_height = int(target_height * 0.88)
     target_subject_width = int(target_width * 0.82)
     scale = min(
@@ -109,18 +158,19 @@ def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
         target_subject_height / subject_height,
     )
 
-    image = image.resize(
-        (
-            max(1, round(subject_width * scale)),
-            max(1, round(subject_height * scale)),
-        ),
-        Image.Resampling.LANCZOS,
+    new_size = (
+        max(1, round(subject_width * scale)),
+        max(1, round(subject_height * scale)),
     )
+
+    # Never use a normal RGBA resize here; premultiplied resampling prevents
+    # transparent-background colour contamination at the silhouette boundary.
+    image = _resize_premultiplied(image, new_size)
 
     canvas = Image.new("RGBA", target_size, (0, 0, 0, 0))
 
     x = (target_width - image.width) // 2
-    y = max(0, int(target_height * 0.06))
+    y = max(0, int(target_height * 0.05))
 
     if y + image.height > target_height:
         y = target_height - image.height
@@ -130,21 +180,28 @@ def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
 
 
 def remove_background(image_bytes: bytes) -> bytes:
-    """Return a clean, large, normalized transparent full-body VTO PNG."""
+    """Return a high-quality, large, normalized transparent full-body VTO PNG."""
     if not image_bytes:
         raise ValueError("Profile photo cannot be empty.")
 
-    from PIL import Image
+    from PIL import Image, ImageOps
     from rembg import remove
 
+    # EXIF orientation must be applied before segmentation so the model sees
+    # the same orientation the user sees in the original photo.
+    with Image.open(io.BytesIO(image_bytes)) as source:
+        source = ImageOps.exif_transpose(source).convert("RGB")
+        normalized_input = io.BytesIO()
+        source.save(normalized_input, format="PNG", optimize=True)
+        segmentation_input = normalized_input.getvalue()
+
     output = remove(
-        image_bytes,
+        segmentation_input,
         session=_get_session(),
-        post_process_mask=True,
-        alpha_matting=True,
-        alpha_matting_foreground_threshold=240,
-        alpha_matting_background_threshold=10,
-        alpha_matting_erode_size=10,
+        # BiRefNet already provides a high-resolution alpha matte. Running the
+        # older pymatting stage after it can soften the silhouette unnecessarily.
+        alpha_matting=False,
+        post_process_mask=False,
         force_return_bytes=True,
     )
 
@@ -160,5 +217,10 @@ def remove_background(image_bytes: bytes) -> bytes:
             raise RuntimeError("Background removal produced an empty subject mask.")
 
         result = io.BytesIO()
-        normalized.save(result, format="PNG", optimize=True)
+        normalized.save(
+            result,
+            format="PNG",
+            optimize=True,
+            compress_level=6,
+        )
         return result.getvalue()
