@@ -37,12 +37,14 @@ class ProfileApi {
     required String profileId,
     required File file,
   }) async {
+    final fileName = file.uri.pathSegments.isNotEmpty
+        ? file.uri.pathSegments.last
+        : 'try-on-photo.jpg';
+
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(
         file.path,
-        filename: file.uri.pathSegments.isNotEmpty
-            ? file.uri.pathSegments.last
-            : 'try-on-photo.jpg',
+        filename: fileName,
       ),
     });
 
@@ -50,8 +52,12 @@ class ProfileApi {
       '${ApiEndpoints.profiles}/$profileId/try-on-photo',
       data: formData,
       options: Options(
-        // Profile image processing includes local human segmentation before
-        // the backend can return the updated profile.
+        extra: {
+          // Dio cannot safely replay a consumed MultipartFile stream after a
+          // 401. AuthInterceptor uses these values to recreate the body.
+          '_auth_retry_file_path': file.path,
+          '_auth_retry_file_name': fileName,
+        },
         receiveTimeout: const Duration(seconds: 90),
         sendTimeout: const Duration(seconds: 30),
       ),
