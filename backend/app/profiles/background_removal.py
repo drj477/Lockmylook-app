@@ -32,18 +32,24 @@ def _get_session():
 
 
 def _clean_alpha(alpha):
-    """Clean tiny mask noise while preserving natural subject edges."""
+    """Remove weak fringe pixels while preserving strong subject detail."""
     from PIL import ImageFilter
 
-    # Remove near-transparent background noise first.
-    alpha = alpha.point(lambda value: 0 if value < 10 else value)
+    # Very low alpha is almost always background spill. Removing it first is
+    # important for hair halos and the translucent pixels around feet.
+    alpha = alpha.point(lambda value: 0 if value < 32 else value)
 
-    # Median filtering removes isolated segmentation speckles.
+    # Remove isolated segmentation speckles without aggressively shrinking
+    # the person mask.
     alpha = alpha.filter(ImageFilter.MedianFilter(size=3))
 
-    # A very small blur followed by a light sharpening step gives smoother
-    # anti-aliased edges without producing a visible hard cutout.
-    alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.25))
+    # A small minimum filter trims a one-pixel translucent fringe while still
+    # retaining the strong interior of hands, clothing, legs, and shoes.
+    alpha = alpha.filter(ImageFilter.MinFilter(size=3))
+
+    # Restore a small amount of natural anti-aliasing after the edge cleanup.
+    alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.18))
+
     return alpha
 
 
@@ -112,8 +118,8 @@ def _normalize_vto_canvas(image, target_size: tuple[int, int] = (1024, 1536)):
 
     canvas = Image.new("RGBA", target_size, (0, 0, 0, 0))
 
-    # Keep the full body visible while leaving a controlled amount of
-    # headroom and avoiding excessive empty space below the feet.
+    # Keep the improved framing from the previous iteration: centered body,
+    # controlled headroom, and enough room below the feet.
     x = (target_width - image.width) // 2
     y = max(0, int((target_height - image.height) * 0.38))
 
@@ -125,8 +131,8 @@ def remove_background(image_bytes: bytes) -> bytes:
     """Return a clean, normalized transparent full-body VTO PNG.
 
     The pipeline uses the human-specific U2Net segmentation model, then
-    performs alpha cleanup, tight subject cropping, proportional padding,
-    and deterministic 1024x1536 canvas normalization.
+    performs stronger alpha cleanup, tight subject cropping, proportional
+    padding, and deterministic 1024x1536 canvas normalization.
     """
     if not image_bytes:
         raise ValueError("Profile photo cannot be empty.")
@@ -141,7 +147,7 @@ def remove_background(image_bytes: bytes) -> bytes:
         alpha_matting=True,
         alpha_matting_foreground_threshold=240,
         alpha_matting_background_threshold=10,
-        alpha_matting_erode_size=8,
+        alpha_matting_erode_size=10,
         force_return_bytes=True,
     )
 
