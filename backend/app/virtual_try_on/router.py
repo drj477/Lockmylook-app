@@ -23,7 +23,7 @@ service = VirtualTryOnService()
     "/profiles/{profile_id}/try-on",
     response_model=VirtualTryOnResponse,
 )
-def generate_try_on(
+async def generate_try_on(
     payload: VirtualTryOnRequest,
     request: Request,
     owned_profile: Profile = Depends(get_owned_profile),
@@ -46,7 +46,7 @@ def generate_try_on(
     ordered_items = {item.id: item for item in items}
     selected_items = [ordered_items[item_id] for item_id in payload.item_ids]
 
-    result = service.generate(
+    result = await service.generate(
         session=session,
         profile=owned_profile,
         items=selected_items,

@@ -1,17 +1,17 @@
 enum VirtualTryOnModel {
   replicate,
-  gemini,
+  geminiChat,
 }
 
 extension VirtualTryOnModelX on VirtualTryOnModel {
   String get value => switch (this) {
         VirtualTryOnModel.replicate => 'replicate',
-        VirtualTryOnModel.gemini => 'gemini',
+        VirtualTryOnModel.geminiChat => 'gemini_chat',
       };
 
   String get label => switch (this) {
         VirtualTryOnModel.replicate => 'Replicate',
-        VirtualTryOnModel.gemini => 'Gemini',
+        VirtualTryOnModel.geminiChat => 'Gemini Chat',
       };
 }
 

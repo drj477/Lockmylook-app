@@ -10,10 +10,10 @@ def test_virtual_try_on_request_defaults_to_replicate():
     assert request.model is VirtualTryOnModel.REPLICATE
 
 
-def test_virtual_try_on_request_accepts_gemini():
+def test_virtual_try_on_request_accepts_gemini_chat():
     request = VirtualTryOnRequest(
         item_ids=[uuid4()],
-        model=VirtualTryOnModel.GEMINI,
+        model=VirtualTryOnModel.GEMINI_CHAT,
     )
 
-    assert request.model is VirtualTryOnModel.GEMINI
+    assert request.model is VirtualTryOnModel.GEMINI_CHAT

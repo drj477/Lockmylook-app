@@ -14,8 +14,13 @@ from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
 
+from .gemini_chat.client import (
+    GeminiChatAuthenticationError,
+    GeminiChatConfigurationError,
+)
+from .gemini_chat.provider import GeminiChatVirtualTryOnProvider
 from .model import VirtualTryOnModel, VirtualTryOnResult
-from .providers import GeminiVirtualTryOnProvider, ReplicateVirtualTryOnProvider
+from .providers import ReplicateVirtualTryOnProvider, VirtualTryOnProvider
 
 
 class VirtualTryOnService:
@@ -23,7 +28,10 @@ class VirtualTryOnService:
 
     MAX_GARMENTS = 4
 
-    def generate(
+    def __init__(self) -> None:
+        self._gemini_chat_provider: GeminiChatVirtualTryOnProvider | None = None
+
+    async def generate(
         self,
         session: Session,
         profile: Profile,
@@ -86,7 +94,7 @@ class VirtualTryOnService:
         )
 
         try:
-            output_bytes = provider.generate(
+            output_bytes = await provider.generate(
                 person_path=person_path,
                 garment_paths=garment_paths,
                 garment_names=garment_names,
@@ -115,13 +123,21 @@ class VirtualTryOnService:
                 status_code=502,
                 detail=f"Virtual Try-On provider error: {detail}",
             ) from error
+        except GeminiChatConfigurationError as error:
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini Chat is not configured. Set GEMINI_CHAT_COOKIE_JSON on the backend.",
+            ) from error
+        except GeminiChatAuthenticationError as error:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Gemini Chat authentication has expired. Re-export the Gemini browser "
+                    "cookies and update the server-side cookie JSON."
+                ),
+            ) from error
         except RuntimeError as error:
             detail = str(error)
-            if "GEMINI_API_KEY" in detail:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Gemini Virtual Try-On is not configured. Add GEMINI_API_KEY to backend/.env.",
-                ) from error
             if "REPLICATE_API_TOKEN" in detail:
                 raise HTTPException(
                     status_code=503,
@@ -184,13 +200,21 @@ class VirtualTryOnService:
 
         return result
 
-    @staticmethod
-    def _provider(model: VirtualTryOnModel, settings):
+    def _provider(self, model: VirtualTryOnModel, settings) -> VirtualTryOnProvider:
         if model is VirtualTryOnModel.REPLICATE:
             return ReplicateVirtualTryOnProvider(settings)
-        if model is VirtualTryOnModel.GEMINI:
-            return GeminiVirtualTryOnProvider(settings)
+
+        if model is VirtualTryOnModel.GEMINI_CHAT:
+            if self._gemini_chat_provider is None:
+                self._gemini_chat_provider = GeminiChatVirtualTryOnProvider(settings)
+            return self._gemini_chat_provider
+
         raise HTTPException(status_code=422, detail=f"Unsupported Virtual Try-On model: {model}")
+
+    async def close(self) -> None:
+        if self._gemini_chat_provider is not None:
+            await self._gemini_chat_provider.close()
+            self._gemini_chat_provider = None
 
     @staticmethod
     def _build_prompt(garment_names: list[str]) -> str:

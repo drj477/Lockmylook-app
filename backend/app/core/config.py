@@ -28,9 +28,11 @@ class Settings(BaseSettings):
 
     # Virtual Try-On
     REPLICATE_API_TOKEN: str = ""
-    GEMINI_API_KEY: str = ""
-    GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"
-    GEMINI_IMAGE_SIZE: str = "2K"
+
+    # Experimental Gemini Chat provider. Credentials stay server-side.
+    GEMINI_CHAT_COOKIE_JSON: str = ""
+    GEMINI_CHAT_COOKIE_CACHE_DIR: str = "secrets/gemini_webapi"
+    GEMINI_CHAT_TIMEOUT_SECONDS: float = 450
 
     # Logging
     LOG_LEVEL: str = "INFO"

@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-import base64
-import mimetypes
+import asyncio
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Protocol
 
-from google import genai
-from loguru import logger
 from replicate.client import Client
 
 from app.core.config import Settings
+from app.virtual_try_on.gemini_chat import GeminiChatVirtualTryOnProvider
 
 
 class VirtualTryOnProvider(Protocol):
-    def generate(
+    async def generate(
         self,
         *,
         person_path: Path,
@@ -30,7 +29,7 @@ class ReplicateVirtualTryOnProvider:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def generate(
+    async def generate(
         self,
         *,
         person_path: Path,
@@ -38,10 +37,25 @@ class ReplicateVirtualTryOnProvider:
         garment_names: list[str],
         prompt: str,
     ) -> bytes:
+        return await asyncio.to_thread(
+            self._generate_sync,
+            person_path,
+            garment_paths,
+            garment_names,
+            prompt,
+        )
+
+    def _generate_sync(
+        self,
+        person_path: Path,
+        garment_paths: list[Path],
+        garment_names: list[str],
+        prompt: str,
+    ) -> bytes:
+        del garment_names
+
         if not self._settings.REPLICATE_API_TOKEN:
             raise RuntimeError("REPLICATE_API_TOKEN is not configured.")
-
-        from contextlib import ExitStack
 
         with ExitStack() as stack:
             person_file = stack.enter_context(person_path.open("rb"))
@@ -68,59 +82,11 @@ class ReplicateVirtualTryOnProvider:
         return _read_provider_output(output)
 
 
-class GeminiVirtualTryOnProvider:
-    """Gemini image-editing provider for multi-reference virtual try-on."""
-
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-
-    def generate(
-        self,
-        *,
-        person_path: Path,
-        garment_paths: list[Path],
-        garment_names: list[str],
-        prompt: str,
-    ) -> bytes:
-        if not self._settings.GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY is not configured.")
-
-        client = genai.Client(api_key=self._settings.GEMINI_API_KEY)
-        inputs: list[dict[str, str]] = [
-            {"type": "text", "text": prompt},
-            _image_input(person_path),
-        ]
-        inputs.extend(_image_input(path) for path in garment_paths)
-
-        logger.info(
-            "Calling Gemini image model={} with {} reference images.",
-            self._settings.GEMINI_IMAGE_MODEL,
-            len(garment_paths) + 1,
-        )
-
-        interaction = client.interactions.create(
-            model=self._settings.GEMINI_IMAGE_MODEL,
-            input=inputs,
-            response_format={
-                "type": "image",
-                "image_size": self._settings.GEMINI_IMAGE_SIZE,
-            },
-        )
-
-        output_image = getattr(interaction, "output_image", None)
-        if output_image is None or not getattr(output_image, "data", None):
-            raise RuntimeError("Gemini completed without returning an image.")
-
-        return base64.b64decode(output_image.data)
-
-
-def _image_input(path: Path) -> dict[str, str]:
-    mime_type, _ = mimetypes.guess_type(path.name)
-    return {
-        "type": "image",
-        "data": base64.b64encode(path.read_bytes()).decode("ascii"),
-        "mime_type": mime_type or "application/octet-stream",
-    }
+__all__ = [
+    "GeminiChatVirtualTryOnProvider",
+    "ReplicateVirtualTryOnProvider",
+    "VirtualTryOnProvider",
+]
 
 
 def _read_provider_output(output) -> bytes:
