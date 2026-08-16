@@ -29,6 +29,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   Profile? _profile;
   bool _tryingOn = false;
   bool _sidebarOpen = false;
+  VirtualTryOnModel _tryOnModel = VirtualTryOnModel.replicate;
 
   String _occasion = 'casual';
   String? _season;
@@ -116,6 +117,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
             profileId: widget.profileId,
             request: VirtualTryOnRequest(
               itemIds: _selectedItems.map((item) => item.id).toList(),
+              model: _tryOnModel,
             ),
           );
 
@@ -191,8 +193,12 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   String _cleanError(Object error) {
     final message = error.toString();
 
+    if (message.contains('GEMINI_API_KEY')) {
+      return 'Gemini Virtual Try-On is not configured on the backend yet.';
+    }
+
     if (message.contains('REPLICATE_API_TOKEN')) {
-      return 'Virtual Try-On is not configured on the backend yet.';
+      return 'Replicate Virtual Try-On is not configured on the backend yet.';
     }
 
     if (message.contains('profile image')) {
@@ -805,6 +811,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
             ),
           ),
           const SizedBox(height: 10),
+          _modelSelector(),
+          const SizedBox(height: 10),
           _actionBar(),
         ],
       ),
@@ -869,6 +877,70 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                 color: LockMyLookUi.ink,
                 fontWeight: FontWeight.w800,
                 fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modelSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: LockMyLookUi.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.tune,
+            size: 18,
+            color: LockMyLookUi.coral,
+          ),
+          const SizedBox(width: 9),
+          const Text(
+            'Try-on model',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: LockMyLookUi.ink,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<VirtualTryOnModel>(
+                value: _tryOnModel,
+                isExpanded: true,
+                alignment: Alignment.centerRight,
+                icon: const Icon(Icons.keyboard_arrow_down, size: 20),
+                items: VirtualTryOnModel.values
+                    .map(
+                      (model) => DropdownMenuItem<VirtualTryOnModel>(
+                        value: model,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            model.label,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _tryingOn
+                    ? null
+                    : (model) {
+                        if (model != null) {
+                          setState(() => _tryOnModel = model);
+                        }
+                      },
               ),
             ),
           ),
