@@ -46,7 +46,7 @@ six==1.17.0
 SQLAlchemy==2.0.43
 sqlmodel==0.0.24
 starlette==0.47.3
-Pillow==11.3.0
+Pillow>=12.1.0,<13.0.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 uvicorn==0.35.0
