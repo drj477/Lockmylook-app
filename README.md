@@ -10,6 +10,8 @@ Router → Service → SQLModel → PostgreSQL
 
 No repository layer, no Redis, no Celery, until real usage data justifies them.
 
+Virtual Try-On keeps the same service boundary while routing generation through a selectable provider (`Replicate` or `Gemini`). Provider-specific API code lives inside the Virtual Try-On service module and does not leak into routers or the mobile client.
+
 ## Local setup
 
 1. **Start infrastructure** (Postgres only — the app runs natively):
@@ -21,7 +23,7 @@ No repository layer, no Redis, no Celery, until real usage data justifies them.
    ```bash
    cd backend
    python3 -m venv .venv
-   source .venv/bin/activate        # Windows: .venv\Scripts\activate
+   source .venv/bin/activate        # Windows: .venv\\Scripts\\activate
    pip install -r requirements.txt
    ```
 
@@ -29,6 +31,8 @@ No repository layer, no Redis, no Celery, until real usage data justifies them.
    ```bash
    cp .env.example .env
    # edit .env — at minimum set a real JWT_SECRET_KEY
+   # set REPLICATE_API_TOKEN for Replicate try-on
+   # set GEMINI_API_KEY to enable Gemini try-on
    ```
 
 4. **Run migrations:**
@@ -47,6 +51,15 @@ No repository layer, no Redis, no Celery, until real usage data justifies them.
    ```bash
    pre-commit install --hook-type pre-commit --hook-type pre-push
    ```
+
+## Virtual Try-On models
+
+The mobile Virtual Try-On page exposes a model dropdown. The selected value is sent to the backend as `model` and persisted with the generated result.
+
+- **Replicate** — existing `prunaai/p-image-try-on` path; remains the default.
+- **Gemini** — Gemini image editing using `gemini-3.1-flash-image` with the person image plus garment reference images.
+
+Gemini's image API supports multi-image composition/editing and configurable image output size. The backend keeps the Gemini API key server-side; the mobile app never receives provider credentials.
 
 ## Running tests
 
