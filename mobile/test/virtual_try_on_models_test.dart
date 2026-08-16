@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/outfits/data/models/virtual_try_on_models.dart';
 
 void main() {
-  test('Virtual Try-On request serializes selected model', () {
+  test('Virtual Try-On request serializes existing Gemini model', () {
     final request = VirtualTryOnRequest(
       itemIds: const ['item-1'],
       model: VirtualTryOnModel.gemini,
@@ -12,6 +12,18 @@ void main() {
     expect(request.toJson(), {
       'item_ids': ['item-1'],
       'model': 'gemini',
+    });
+  });
+
+  test('Virtual Try-On request serializes Gemini Chat model', () {
+    final request = VirtualTryOnRequest(
+      itemIds: const ['item-1'],
+      model: VirtualTryOnModel.geminiChat,
+    );
+
+    expect(request.toJson(), {
+      'item_ids': ['item-1'],
+      'model': 'gemini_chat',
     });
   });
 
