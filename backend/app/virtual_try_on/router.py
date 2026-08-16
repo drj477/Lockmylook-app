@@ -50,6 +50,7 @@ def generate_try_on(
         session=session,
         profile=owned_profile,
         items=selected_items,
+        model=payload.model,
     )
 
     return service.to_response(

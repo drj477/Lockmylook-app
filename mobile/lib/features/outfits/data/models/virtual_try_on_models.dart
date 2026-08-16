@@ -1,12 +1,32 @@
+enum VirtualTryOnModel {
+  replicate,
+  gemini,
+}
+
+extension VirtualTryOnModelX on VirtualTryOnModel {
+  String get value => switch (this) {
+        VirtualTryOnModel.replicate => 'replicate',
+        VirtualTryOnModel.gemini => 'gemini',
+      };
+
+  String get label => switch (this) {
+        VirtualTryOnModel.replicate => 'Replicate',
+        VirtualTryOnModel.gemini => 'Gemini',
+      };
+}
+
 class VirtualTryOnRequest {
   const VirtualTryOnRequest({
     required this.itemIds,
+    this.model = VirtualTryOnModel.replicate,
   });
 
   final List<String> itemIds;
+  final VirtualTryOnModel model;
 
   Map<String, dynamic> toJson() => {
         'item_ids': itemIds,
+        'model': model.value,
       };
 }
 
@@ -16,11 +36,14 @@ class VirtualTryOnResult {
     required this.profileId,
     required this.imageUrl,
     required this.itemIds,
+    required this.model,
     required this.createdAt,
     required this.saved,
   });
 
   factory VirtualTryOnResult.fromJson(Map<String, dynamic> json) {
+    final modelValue = json['model'] as String? ?? 'replicate';
+
     return VirtualTryOnResult(
       id: json['id'] as String,
       profileId: json['profile_id'] as String,
@@ -28,6 +51,10 @@ class VirtualTryOnResult {
       itemIds: (json['item_ids'] as List<dynamic>)
           .map((value) => value as String)
           .toList(),
+      model: VirtualTryOnModel.values.firstWhere(
+        (value) => value.value == modelValue,
+        orElse: () => VirtualTryOnModel.replicate,
+      ),
       createdAt: DateTime.parse(json['created_at'] as String),
       saved: json['saved'] as bool? ?? false,
     );
@@ -37,6 +64,7 @@ class VirtualTryOnResult {
   final String profileId;
   final String imageUrl;
   final List<String> itemIds;
+  final VirtualTryOnModel model;
   final DateTime createdAt;
   final bool saved;
 }

@@ -3,10 +3,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from .model import VirtualTryOnModel
+
 
 class VirtualTryOnRequest(BaseModel):
-    # The currently pinned p-image-try-on API version accepts up to 4 garments.
     item_ids: list[UUID] = Field(min_length=1, max_length=4)
+    model: VirtualTryOnModel = VirtualTryOnModel.REPLICATE
 
 
 class VirtualTryOnResponse(BaseModel):
@@ -14,6 +16,7 @@ class VirtualTryOnResponse(BaseModel):
     profile_id: UUID
     image_url: str
     item_ids: list[UUID]
+    model: VirtualTryOnModel
     created_at: datetime
     saved: bool
 

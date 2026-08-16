@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     # Virtual Try-On
     REPLICATE_API_TOKEN: str = ""
+    GEMINI_API_KEY: str = ""
+    GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"
+    GEMINI_IMAGE_SIZE: str = "2K"
 
     # Logging
     LOG_LEVEL: str = "INFO"

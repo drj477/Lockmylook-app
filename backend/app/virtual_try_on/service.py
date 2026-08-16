@@ -1,11 +1,11 @@
 import json
-from contextlib import ExitStack
+from io import BytesIO
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from loguru import logger
-from replicate.client import Client
+from PIL import Image
 from replicate.exceptions import ModelError
 from sqlmodel import Session
 
@@ -14,13 +14,13 @@ from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
 
-from .model import VirtualTryOnResult
+from .model import VirtualTryOnModel, VirtualTryOnResult
+from .providers import GeminiVirtualTryOnProvider, ReplicateVirtualTryOnProvider
 
 
 class VirtualTryOnService:
-    """Generate and persist virtual try-on results using Replicate."""
+    """Generate and persist virtual try-on results through selectable providers."""
 
-    MODEL = "prunaai/p-image-try-on"
     MAX_GARMENTS = 4
 
     def generate(
@@ -28,17 +28,9 @@ class VirtualTryOnService:
         session: Session,
         profile: Profile,
         items: list[WardrobeItem],
+        model: VirtualTryOnModel = VirtualTryOnModel.REPLICATE,
     ) -> VirtualTryOnResult:
         settings = get_settings()
-
-        if not settings.REPLICATE_API_TOKEN:
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Virtual Try-On is not configured. "
-                    "Add REPLICATE_API_TOKEN to backend/.env."
-                ),
-            )
 
         if not profile.avatar_url:
             raise HTTPException(
@@ -61,8 +53,6 @@ class VirtualTryOnService:
                 ),
             )
 
-        # Profiles created before the transparent VTO asset was introduced are
-        # upgraded lazily the first time they are used for Virtual Try-On.
         if not profile.vto_asset_url:
             try:
                 profile = profile_image_service.ensure_vto_asset(session, profile)
@@ -70,7 +60,6 @@ class VirtualTryOnService:
                 raise HTTPException(status_code=422, detail=str(error)) from error
 
         person_path = self._resolve_local_path(profile.vto_asset_url)
-
         garment_paths: list[Path] = []
         garment_names: list[str] = []
 
@@ -81,61 +70,28 @@ class VirtualTryOnService:
                     detail=f'Add an image to "{item.name}" before trying it on.',
                 )
 
-            image = sorted(
-                item.images,
-                key=lambda value: value.display_order,
-            )[0]
+            image = sorted(item.images, key=lambda value: value.display_order)[0]
             garment_paths.append(self._resolve_local_path(image.image_url))
             garment_names.append(item.name)
 
-        prompt = (
-            "Photorealistic virtual try-on. Dress the supplied person in the "
-            "supplied wardrobe garments while preserving the person's identity, "
-            "face, hair, skin tone, body proportions, pose, hands, legs and feet. "
-            "Use the garment images as the exact visual reference for color, "
-            "pattern, material, fit and construction. Produce a natural camera "
-            "photograph with sharp fabric texture, realistic folds, clean edges, "
-            "consistent lighting and accurate anatomy. Do not invent accessories, "
-            "change the person's body, alter their face, or restore any original "
-            "profile-photo background. "
-            f"Use these garments in order: {', '.join(garment_names)}."
-        )
+        prompt = self._build_prompt(garment_names)
+        provider = self._provider(model, settings)
 
         logger.info(
             "Starting Virtual Try-On: profile={} garments={} model={} person_asset={}",
             profile.id,
             garment_names,
-            self.MODEL,
+            model.value,
             person_path,
         )
 
         try:
-            with ExitStack() as stack:
-                person_file = stack.enter_context(person_path.open("rb"))
-                garment_files = [
-                    stack.enter_context(path.open("rb"))
-                    for path in garment_paths
-                ]
-
-                client = Client(api_token=settings.REPLICATE_API_TOKEN)
-                output = client.run(
-                    self.MODEL,
-                    input={
-                        "person_image": person_file,
-                        "garment_images": garment_files,
-                        "prompt": prompt,
-                        # Prefer the quality path. Turbo is an optimization for
-                        # speed; this endpoint is explicitly quality-first.
-                        "turbo": False,
-                        "preserve_input_size": True,
-                        "output_format": "webp",
-                        "output_quality": 100,
-                    },
-                    wait=60,
-                )
-
-                output_bytes = self._read_output(output)
-
+            output_bytes = provider.generate(
+                person_path=person_path,
+                garment_paths=garment_paths,
+                garment_names=garment_names,
+                prompt=prompt,
+            )
         except ModelError as error:
             prediction = getattr(error, "prediction", None)
             prediction_id = getattr(prediction, "id", None)
@@ -159,11 +115,35 @@ class VirtualTryOnService:
                 status_code=502,
                 detail=f"Virtual Try-On provider error: {detail}",
             ) from error
-
+        except RuntimeError as error:
+            detail = str(error)
+            if "GEMINI_API_KEY" in detail:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Gemini Virtual Try-On is not configured. Add GEMINI_API_KEY to backend/.env.",
+                ) from error
+            if "REPLICATE_API_TOKEN" in detail:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Replicate Virtual Try-On is not configured. Add REPLICATE_API_TOKEN to backend/.env.",
+                ) from error
+            logger.exception(
+                "Virtual Try-On provider failed: profile={} model={}",
+                profile.id,
+                model.value,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=f"Virtual Try-On provider error: {detail}",
+            ) from error
         except HTTPException:
             raise
         except Exception as error:
-            logger.exception("Unexpected Virtual Try-On failure for profile={}", profile.id)
+            logger.exception(
+                "Unexpected Virtual Try-On failure: profile={} model={}",
+                profile.id,
+                model.value,
+            )
             raise HTTPException(
                 status_code=502,
                 detail=f"Virtual Try-On failed while processing the images: {error}",
@@ -174,6 +154,8 @@ class VirtualTryOnService:
                 status_code=502,
                 detail="Virtual Try-On completed without returning an image.",
             )
+
+        output_bytes = self._normalize_output(output_bytes)
 
         output_dir = Path("uploads/tryon")
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -186,19 +168,69 @@ class VirtualTryOnService:
             profile_id=profile.id,
             image_url=f"/uploads/tryon/{filename}",
             item_ids_json=json.dumps([str(item.id) for item in items]),
+            model=model.value,
         )
         session.add(result)
         session.commit()
         session.refresh(result)
 
         logger.info(
-            "Virtual Try-On completed: profile={} result={} path={}",
+            "Virtual Try-On completed: profile={} result={} model={} path={}",
             profile.id,
             result.id,
+            model.value,
             output_path,
         )
 
         return result
+
+    @staticmethod
+    def _provider(model: VirtualTryOnModel, settings):
+        if model is VirtualTryOnModel.REPLICATE:
+            return ReplicateVirtualTryOnProvider(settings)
+        if model is VirtualTryOnModel.GEMINI:
+            return GeminiVirtualTryOnProvider(settings)
+        raise HTTPException(status_code=422, detail=f"Unsupported Virtual Try-On model: {model}")
+
+    @staticmethod
+    def _build_prompt(garment_names: list[str]) -> str:
+        garment_list = "\n".join(
+            f"- Reference garment image {index + 2}: {name}"
+            for index, name in enumerate(garment_names)
+        )
+
+        return f"""
+Create a photorealistic virtual try-on photograph.
+
+REFERENCE IMAGE 1 is the PERSON. It is authoritative for identity, face, hair,
+body proportions, pose, hands, skin, lower body and the original scene.
+
+The remaining reference images are the GARMENTS. Transfer those exact garments
+onto the person. Each garment reference is authoritative for its visual design.
+
+{garment_list}
+
+STRICT REQUIREMENTS:
+- Preserve the person's identity exactly. Do not regenerate or reinterpret the face.
+- Preserve facial structure, hair, skin tone, body proportions and age appearance.
+- Preserve the original pose, hands, arms, legs and feet.
+- Preserve the original camera perspective and composition.
+- Preserve the original background unless a natural adjustment is required for lighting.
+- Change clothing only.
+- Use the garment references as exact visual references, not inspiration.
+- Preserve exact garment color, pattern, print, material, texture, construction and proportions.
+- Preserve collars, necklines, buttons, zippers, pockets, seams, cuffs and hems.
+- Preserve the complete sleeve length and sleeve construction. Never shorten, remove or crop sleeves.
+- Fit each garment naturally to the person's actual body and pose.
+- Create realistic fabric folds, tension, occlusion and shadows caused by the pose.
+- Keep hands naturally in front of or beside the garments when appropriate.
+- Do not add accessories or change unrelated clothing.
+- Do not redesign, simplify or invent garment details.
+- Do not change the person's gender, hairstyle, facial expression or body shape.
+- The result must look like a real photograph of the same person wearing the supplied garments.
+
+Output only the finished image.
+""".strip()
 
     @staticmethod
     def _resolve_local_path(value: str | None) -> Path:
@@ -249,14 +281,25 @@ class VirtualTryOnService:
         return path
 
     @staticmethod
+    def _normalize_output(output_bytes: bytes) -> bytes:
+        """Normalize provider output to the app's persisted WebP format."""
+        try:
+            with Image.open(BytesIO(output_bytes)) as image:
+                if image.mode not in ("RGB", "RGBA"):
+                    image = image.convert("RGB")
+                output = BytesIO()
+                image.save(output, format="WEBP", quality=95, method=6)
+                return output.getvalue()
+        except Exception as error:
+            raise RuntimeError(f"Provider returned an unreadable image: {error}") from error
+
+    @staticmethod
     def _read_output(output) -> bytes:
-        """Normalize Replicate SDK file output into bytes."""
+        """Backward-compatible output normalization helper used by tests."""
         if output is None:
             return b""
-
         if hasattr(output, "read"):
             return output.read()
-
         if isinstance(output, list | tuple):
             if not output:
                 return b""
@@ -265,13 +308,9 @@ class VirtualTryOnService:
                 return first.read()
             if isinstance(first, bytes | bytearray):
                 return bytes(first)
-
         if isinstance(output, bytes | bytearray):
             return bytes(output)
-
-        raise RuntimeError(
-            f"Unsupported Replicate output type: {type(output).__name__}"
-        )
+        raise RuntimeError(f"Unsupported provider output type: {type(output).__name__}")
 
     @staticmethod
     def to_response(result: VirtualTryOnResult, public_base_url: str):
@@ -282,6 +321,7 @@ class VirtualTryOnService:
             profile_id=result.profile_id,
             image_url=f"{public_base_url.rstrip('/')}{result.image_url}",
             item_ids=json.loads(result.item_ids_json),
+            model=VirtualTryOnModel(result.model),
             created_at=result.created_at,
             saved=result.saved,
         )
