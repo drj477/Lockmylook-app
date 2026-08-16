@@ -8,6 +8,7 @@ from sqlmodel import Field, SQLModel
 
 class VirtualTryOnModel(str, Enum):
     REPLICATE = "replicate"
+    GEMINI = "gemini"
     GEMINI_CHAT = "gemini_chat"
 
 
