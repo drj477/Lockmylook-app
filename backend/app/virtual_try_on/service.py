@@ -20,7 +20,11 @@ from .gemini_chat.client import (
 )
 from .gemini_chat.provider import GeminiChatVirtualTryOnProvider
 from .model import VirtualTryOnModel, VirtualTryOnResult
-from .providers import ReplicateVirtualTryOnProvider, VirtualTryOnProvider
+from .providers import (
+    GeminiVirtualTryOnProvider,
+    ReplicateVirtualTryOnProvider,
+    VirtualTryOnProvider,
+)
 
 
 class VirtualTryOnService:
@@ -138,6 +142,11 @@ class VirtualTryOnService:
             ) from error
         except RuntimeError as error:
             detail = str(error)
+            if "GEMINI_API_KEY" in detail:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Gemini Virtual Try-On is not configured. Add GEMINI_API_KEY to backend/.env.",
+                ) from error
             if "REPLICATE_API_TOKEN" in detail:
                 raise HTTPException(
                     status_code=503,
@@ -203,6 +212,9 @@ class VirtualTryOnService:
     def _provider(self, model: VirtualTryOnModel, settings) -> VirtualTryOnProvider:
         if model is VirtualTryOnModel.REPLICATE:
             return ReplicateVirtualTryOnProvider(settings)
+
+        if model is VirtualTryOnModel.GEMINI:
+            return GeminiVirtualTryOnProvider(settings)
 
         if model is VirtualTryOnModel.GEMINI_CHAT:
             if self._gemini_chat_provider is None:
