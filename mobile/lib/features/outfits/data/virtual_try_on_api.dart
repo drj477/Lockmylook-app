@@ -17,8 +17,8 @@ class VirtualTryOnApi {
       '${ApiEndpoints.profiles}/$profileId/try-on',
       data: request.toJson(),
       options: Options(
-        receiveTimeout: const Duration(seconds: 100),
-        sendTimeout: const Duration(seconds: 20),
+        receiveTimeout: const Duration(seconds: 300),
+        sendTimeout: const Duration(seconds: 60),
       ),
     );
 

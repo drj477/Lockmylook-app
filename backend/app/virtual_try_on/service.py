@@ -264,6 +264,7 @@ STRICT REQUIREMENTS:
 - Do not redesign, simplify or invent garment details.
 - Do not change the person's gender, hairstyle, facial expression or body shape.
 - The result must look like a real photograph of the same person wearing the supplied garments.
+- Keep the output image aspect ratio 3:4  the ratio is in format Width:Height
 
 Output only the finished image.
 """.strip()
