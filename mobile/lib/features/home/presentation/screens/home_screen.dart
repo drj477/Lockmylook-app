@@ -368,41 +368,95 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     VoidCallback? onTap,
   }) {
     final isAdd = icon != null;
+
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 62,
-        child: Column(children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: 58,
-            height: 58,
-            padding: EdgeInsets.all(selected ? 2.5 : 0),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isAdd ? LockMyLookUi.border : LockMyLookUi.coral,
-                width: isAdd ? 1.5 : (selected ? 3.5 : 1.5),
+        width: 66,
+        child: Column(
+          children: [
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (!isAdd)
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: LockMyLookUi.coral,
+                          width: selected ? 3.5 : 1.5,
+                        ),
+                      ),
+                    ),
+                  if (!isAdd)
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: LockMyLookUi.coral,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isAdd ? Colors.white : LockMyLookUi.coralSoft,
+                      border: isAdd
+                          ? Border.all(color: LockMyLookUi.border, width: 1.5)
+                          : null,
+                    ),
+                    child: ClipOval(
+                      child: isAdd
+                          ? Icon(icon, color: LockMyLookUi.navy, size: 23)
+                          : avatarUrl != null && avatarUrl.isNotEmpty
+                              ? Image.network(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Center(
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: LockMyLookUi.coral,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      color: LockMyLookUi.coral,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isAdd ? Colors.white : LockMyLookUi.coralSoft,
-                border: null,
-              ),
-              child: ClipOval(
-                child: isAdd
-                    ? Icon(icon, color: LockMyLookUi.navy, size: 23)
-                    : avatarUrl != null && avatarUrl.isNotEmpty
-                        ? Image.network(avatarUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => Center(child: Text(initial, style: const TextStyle(color: LockMyLookUi.coral, fontWeight: FontWeight.w800, fontSize: 18))))
-                        : Center(child: Text(initial, style: const TextStyle(color: LockMyLookUi.coral, fontWeight: FontWeight.w800, fontSize: 18))),
-              ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: LockMyLookUi.ink),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: LockMyLookUi.ink)),
-        ]),
+          ],
+        ),
       ),
     );
   }
