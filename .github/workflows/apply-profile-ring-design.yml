@@ -1,0 +1,152 @@
+name: Apply profile ring design
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Replace profile bubble implementation
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('mobile/lib/features/home/presentation/screens/home_screen.dart')
+          text = path.read_text(encoding='utf-8')
+
+          start = text.index('  Widget _profileBubble({')
+          end = text.index('  Widget _quickCard({', start)
+
+          replacement = r'''  Widget _profileBubble({
+    required String label,
+    required String initial,
+    required bool selected,
+    String? avatarUrl,
+    IconData? icon,
+    VoidCallback? onTap,
+  }) {
+    final isAdd = icon != null;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 70,
+        child: Column(
+          children: [
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (!isAdd)
+                    Container(
+                      width: selected ? 64 : 56,
+                      height: selected ? 64 : 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: LockMyLookUi.coral,
+                          width: selected ? 3.5 : 1.5,
+                        ),
+                      ),
+                    ),
+                  if (selected && !isAdd)
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: LockMyLookUi.coral,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isAdd
+                          ? Colors.white
+                          : LockMyLookUi.coralSoft,
+                      border: isAdd
+                          ? Border.all(
+                              color: LockMyLookUi.border,
+                              width: 1.5,
+                            )
+                          : null,
+                    ),
+                    child: ClipOval(
+                      child: isAdd
+                          ? Icon(
+                              icon,
+                              color: LockMyLookUi.navy,
+                              size: 23,
+                            )
+                          : avatarUrl != null && avatarUrl.isNotEmpty
+                              ? Image.network(
+                                  avatarUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => Center(
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: LockMyLookUi.coral,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      color: LockMyLookUi.coral,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: LockMyLookUi.ink),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+'''
+
+          text = text[:start] + replacement + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit source change and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/lib/features/home/presentation/screens/home_screen.dart
+          git commit -m "fix: match profile ring design"
+          git rm .github/workflows/apply-profile-ring-design.yml
+          git commit -m "chore: remove temporary profile ring workflow"
+          git push
