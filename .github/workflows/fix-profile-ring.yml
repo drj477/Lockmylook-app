@@ -1,0 +1,48 @@
+name: Fix profile ring styling
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update profile rings
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('mobile/lib/features/home/presentation/screens/home_screen.dart')
+          text = path.read_text(encoding='utf-8')
+
+          old = """border: Border.all(\n                color: isAdd ? LockMyLookUi.border : LockMyLookUi.border,\n                width: 1.5,\n              ),"""
+          new = """border: Border.all(\n                color: isAdd ? LockMyLookUi.border : LockMyLookUi.coral,\n                width: isAdd ? 1.5 : (selected ? 3.5 : 1.5),\n              ),"""
+
+          if old not in text:
+              raise SystemExit('Outer profile ring block not found')
+          text = text.replace(old, new, 1)
+
+          old = """border: isAdd\n                    ? null\n                    : selected\n                        ? Border.all(color: LockMyLookUi.coral, width: 2)\n                        : null,"""
+          new = """border: null,"""
+
+          if old not in text:
+              raise SystemExit('Inner profile ring block not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/lib/features/home/presentation/screens/home_screen.dart
+          git commit -m "fix: use coral outer rings for profiles"
+          git rm .github/workflows/fix-profile-ring.yml
+          git commit -m "chore: remove temporary profile ring workflow"
+          git push
