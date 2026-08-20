@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/app/routes.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/profiles/application/profile_providers.dart';
-import 'package:mobile/features/profiles/data/models/profile_models.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 
@@ -386,7 +385,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           if (index == profileState.profiles.length) {
                             return _profileBubble(
                               label: 'Add',
+                              initial: '+',
                               icon: Icons.add,
+                              selected: false,
                               onTap: () => context.push(AppRoutes.profiles),
                             );
                           }
