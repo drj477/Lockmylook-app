@@ -381,19 +381,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: isAdd ? LockMyLookUi.border : LockMyLookUi.border,
-                width: 1.5,
+                color: isAdd ? LockMyLookUi.border : LockMyLookUi.coral,
+                width: isAdd ? 1.5 : (selected ? 3.5 : 1.5),
               ),
             ),
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isAdd ? Colors.white : LockMyLookUi.coralSoft,
-                border: isAdd
-                    ? null
-                    : selected
-                        ? Border.all(color: LockMyLookUi.coral, width: 2)
-                        : null,
+                border: null,
               ),
               child: ClipOval(
                 child: isAdd
