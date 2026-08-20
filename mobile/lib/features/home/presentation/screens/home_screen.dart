@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/app/routes.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
 import 'package:mobile/features/profiles/application/profile_providers.dart';
+import 'package:mobile/features/profiles/data/models/profile_models.dart';
 import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 
@@ -20,7 +21,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _storage = FlutterSecureStorage();
-
   static const _todayPickDateKey = 'home_today_pick_date';
   static const _todayPickIdsKey = 'home_today_pick_ids';
 
@@ -31,7 +31,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-
     Future.microtask(_loadHome);
   }
 
@@ -43,12 +42,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final profiles = ref.read(profileControllerProvider).profiles;
-
     if (profiles.isEmpty) {
       return;
     }
 
     await _loadWardrobeAndPick(profiles.first.id);
+  }
+
+  Future<void> _selectProfile(String profileId) async {
+    ref.read(profileControllerProvider.notifier).selectProfile(profileId);
+    await _loadWardrobeAndPick(profileId);
   }
 
   Future<void> _loadWardrobeAndPick(String profileId) async {
@@ -70,7 +73,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
 
       final wardrobeState = ref.read(wardrobeControllerProvider);
-
       await _loadCachedOrCreatePick(wardrobeState.items);
     } finally {
       if (mounted) {
@@ -90,9 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final today = _todayKey();
-
     final cachedDate = await _storage.read(key: _todayPickDateKey);
-
     final cachedIdsRaw = await _storage.read(key: _todayPickIdsKey);
 
     if (cachedDate == today &&
@@ -102,7 +102,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .split(',')
           .where((id) => id.isNotEmpty)
           .toSet();
-
       final cachedItems = <WardrobeItem>[];
 
       for (final item in items) {
@@ -127,9 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    final seed = DateTime.now().millisecondsSinceEpoch;
-    final random = Random(seed);
-
+    final random = Random(DateTime.now().millisecondsSinceEpoch);
     final selected = _buildLocalOutfit(items, random);
 
     if (selected.isEmpty) {
@@ -137,7 +134,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     await _storage.write(key: _todayPickDateKey, value: _todayKey());
-
     await _storage.write(
       key: _todayPickIdsKey,
       value: selected.map((item) => item.id).join(','),
@@ -165,7 +161,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final tops = available.where((item) {
       final category = item.category.name.toLowerCase();
-
       return category.contains('top') ||
           category.contains('shirt') ||
           category.contains('tee') ||
@@ -176,7 +171,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final bottoms = available.where((item) {
       final category = item.category.name.toLowerCase();
-
       return category.contains('bottom') ||
           category.contains('pant') ||
           category.contains('jean') ||
@@ -187,7 +181,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final shoes = available.where((item) {
       final category = item.category.name.toLowerCase();
-
       return category.contains('shoe') ||
           category.contains('sneaker') ||
           category.contains('footwear');
@@ -201,7 +194,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
 
       final item = source[random.nextInt(source.length)];
-
       if (!result.any((selected) => selected.id == item.id)) {
         result.add(item);
       }
@@ -213,12 +205,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (result.length < 3) {
       available.shuffle(random);
-
       for (final item in available) {
         if (!result.any((selected) => selected.id == item.id)) {
           result.add(item);
         }
-
         if (result.length == 3) {
           break;
         }
@@ -252,37 +242,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   String _todayKey() {
     final now = DateTime.now();
-
     return '${now.year}-'
         '${now.month.toString().padLeft(2, '0')}-'
         '${now.day.toString().padLeft(2, '0')}';
   }
 
+  String _displayName(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return value;
+    }
+    return '${trimmed[0].toUpperCase()}${trimmed.substring(1)}';
+  }
+
   String? get _profileId {
     final profiles = ref.read(profileControllerProvider).profiles;
-
     return profiles.isEmpty ? null : profiles.first.id;
   }
 
   void _openWardrobe() {
     final profileId = _profileId;
-
     if (profileId == null) {
       context.push(AppRoutes.profiles);
       return;
     }
-
     context.push(AppRoutes.wardrobe, extra: profileId);
   }
 
   void _openOutfits() {
     final profileId = _profileId;
-
     if (profileId == null) {
       context.push(AppRoutes.profiles);
       return;
     }
-
     context.push(AppRoutes.outfits, extra: profileId);
   }
 
@@ -305,10 +297,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final profileState = ref.watch(profileControllerProvider);
-
-    final name = profileState.profiles.isEmpty
+    final selectedProfile = profileState.profiles.isEmpty
+        ? null
+        : profileState.profiles.first;
+    final greetingName = selectedProfile == null
         ? 'there'
-        : profileState.profiles.first.name;
+        : _displayName(selectedProfile.name);
 
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
@@ -316,13 +310,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             await ref.read(profileControllerProvider.notifier).loadProfiles();
-
             if (!mounted) {
               return;
             }
 
             final profiles = ref.read(profileControllerProvider).profiles;
-
             if (profiles.isNotEmpty) {
               await _loadWardrobeAndPick(profiles.first.id);
             }
@@ -338,7 +330,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hi, ${name == 'there' ? 'there' : name} 👋',
+                          'Hi, $greetingName 👋',
                           style: const TextStyle(
                             fontSize: 25,
                             fontWeight: FontWeight.w800,
@@ -370,19 +362,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
-
               LockMyLookUi.sectionTitle(
                 'My Profiles',
                 action: 'Manage',
                 onAction: () => context.push(AppRoutes.profiles),
               ),
-
               const SizedBox(height: 10),
-
               SizedBox(
-                height: 84,
+                height: 88,
                 child: profileState.profiles.isEmpty
                     ? const Center(
                         child: Text(
@@ -404,26 +392,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           }
 
                           final profile = profileState.profiles[index];
+                          final isSelected = index == 0;
 
                           return _profileBubble(
-                            label: profile.name,
-                            initial: profile.name.isEmpty
+                            label: _displayName(profile.name),
+                            avatarUrl: profile.avatarUrl,
+                            initial: profile.name.trim().isEmpty
                                 ? '?'
-                                : profile.name[0].toUpperCase(),
-                            onTap: () async {
-                              await _loadWardrobeAndPick(profile.id);
-
-                              if (mounted) {
-                                setState(() {});
-                              }
-                            },
+                                : profile.name.trim()[0].toUpperCase(),
+                            selected: isSelected,
+                            onTap: () => _selectProfile(profile.id),
                           );
                         },
                       ),
               ),
-
               const SizedBox(height: 22),
-
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -489,21 +472,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 24),
-
               LockMyLookUi.sectionTitle(
                 'Today\'s Pick',
                 action: 'Restyle ✨',
                 onAction: _restyle,
               ),
-
               const SizedBox(height: 10),
-
               _todayPickCard(),
-
               const SizedBox(height: 18),
-
               Row(
                 children: [
                   Expanded(
@@ -525,17 +502,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 24),
-
               LockMyLookUi.sectionTitle(
                 'Recent Items',
                 action: 'View All',
                 onAction: _openWardrobe,
               ),
-
               const SizedBox(height: 10),
-
               _recentItems(),
             ],
           ),
@@ -624,9 +597,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 14),
-
           Row(
             children: [
               Expanded(
@@ -678,7 +649,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         height: double.infinity,
         color: LockMyLookUi.background,
         child: imageUrl == null || imageUrl.isEmpty
-            ? Center(
+            ? const Center(
                 child: Icon(
                   Icons.checkroom_outlined,
                   size: 38,
@@ -701,7 +672,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   if (progress == null) {
                     return child;
                   }
-
                   return const Center(
                     child: CircularProgressIndicator(strokeWidth: 2),
                   );
@@ -729,7 +699,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final recent = [...items]
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
     final visibleItems = recent.take(8).toList();
 
     return SizedBox(
@@ -740,7 +709,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           final item = visibleItems[index];
-
           return Container(
             width: 112,
             padding: const EdgeInsets.all(8),
@@ -790,7 +758,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (progress == null) {
             return child;
           }
-
           return const Center(
             child: SizedBox(
               width: 20,
@@ -805,40 +772,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _profileBubble({
     required String label,
-    String? initial,
+    required String initial,
+    required bool selected,
+    String? avatarUrl,
     IconData? icon,
     VoidCallback? onTap,
   }) {
+    final isAdd = icon != null;
+
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
         width: 62,
         child: Column(
           children: [
-            Container(
-              width: 52,
-              height: 52,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 58,
+              height: 58,
+              padding: EdgeInsets.all(selected ? 2.5 : 0),
               decoration: BoxDecoration(
-                color: initial == null ? Colors.white : LockMyLookUi.coralSoft,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: initial == null
+                  color: isAdd
                       ? LockMyLookUi.border
-                      : LockMyLookUi.coral,
-                  width: 1.5,
+                      : selected
+                          ? LockMyLookUi.coral
+                          : Colors.transparent,
+                  width: selected ? 2.5 : 1.5,
                 ),
               ),
-              child: Center(
-                child: initial != null
-                    ? Text(
-                        initial,
-                        style: const TextStyle(
-                          color: LockMyLookUi.coral,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isAdd ? Colors.white : LockMyLookUi.coralSoft,
+                  border: isAdd
+                      ? null
+                      : Border.all(
+                          color: LockMyLookUi.border,
+                          width: 1,
                         ),
-                      )
-                    : Icon(icon, color: LockMyLookUi.navy, size: 23),
+                ),
+                child: ClipOval(
+                  child: isAdd
+                      ? Icon(icon, color: LockMyLookUi.navy, size: 23)
+                      : avatarUrl != null && avatarUrl.isNotEmpty
+                          ? Image.network(
+                              avatarUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Center(
+                                child: Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    color: LockMyLookUi.coral,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                initial,
+                                style: const TextStyle(
+                                  color: LockMyLookUi.coral,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                ),
               ),
             ),
             const SizedBox(height: 6),
