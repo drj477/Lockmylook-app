@@ -247,9 +247,9 @@ onto the person. Each garment reference is authoritative for its visual design.
 {garment_list}
 
 STRICT REQUIREMENTS:
-- Preserve the person's identity exactly. Do not regenerate or reinterpret the face.
+- Preserve the person's identity exactly. Do not regenerate or reinterpret the face keep the face as it is.
 - Preserve facial structure, hair, skin tone, body proportions and age appearance.
-- Preserve the original pose, hands, arms, legs and feet.
+- Preserve the original pose, hands, arms, legs,face and feet.
 - Preserve the original camera perspective and composition.
 - Preserve the original background unless a natural adjustment is required for lighting.
 - Change clothing only.
