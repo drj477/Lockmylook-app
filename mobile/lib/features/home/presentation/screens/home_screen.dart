@@ -389,25 +389,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: LockMyLookUi.coral,
-                          width: selected ? 3.5 : 1.5,
-                        ),
-                      ),
-                    ),
-                  if (!isAdd)
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: LockMyLookUi.coral,
                           width: 1.5,
                         ),
                       ),
                     ),
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: selected ? 52 : 48,
+                    height: selected ? 52 : 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isAdd ? Colors.white : LockMyLookUi.coralSoft,
