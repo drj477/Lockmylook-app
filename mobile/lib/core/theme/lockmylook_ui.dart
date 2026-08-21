@@ -121,36 +121,94 @@ class LmlBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  static const _items = [
+    (Icons.home_outlined, Icons.home_rounded, 'Home'),
+    (Icons.checkroom_outlined, Icons.checkroom_rounded, 'Wardrobe'),
+    (Icons.auto_awesome_outlined, Icons.auto_awesome, 'Style AI'),
+    (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return NavigationBar(
-      selectedIndex: currentIndex,
-      onDestinationSelected: onTap,
-      height: 76,
-      backgroundColor: Colors.white,
-      indicatorColor: LockMyLookUi.coralSoft,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Home',
+    return Container(
+      height: 82,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x120B1B35),
+            blurRadius: 22,
+            offset: Offset(0, -6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(12, 7, 12, 4),
+        child: Row(
+          children: List.generate(_items.length, (index) {
+            final item = _items[index];
+            final selected = index == currentIndex;
+
+            return Expanded(
+              child: Semantics(
+                button: true,
+                selected: selected,
+                label: item.$3,
+                child: InkWell(
+                  onTap: () => onTap(index),
+                  borderRadius: BorderRadius.circular(18),
+                  splashColor: LockMyLookUi.coralSoft,
+                  highlightColor: LockMyLookUi.coralSoft.withValues(alpha: 0.35),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? LockMyLookUi.coralSoft
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedScale(
+                          scale: selected ? 1.08 : 1.0,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutBack,
+                          child: Icon(
+                            selected ? item.$2 : item.$1,
+                            size: selected ? 23 : 22,
+                            color: selected
+                                ? LockMyLookUi.coral
+                                : LockMyLookUi.navy,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 180),
+                          style: TextStyle(
+                            color: selected
+                                ? LockMyLookUi.navy
+                                : LockMyLookUi.muted,
+                            fontSize: 11.5,
+                            fontWeight:
+                                selected ? FontWeight.w800 : FontWeight.w600,
+                            letterSpacing: -0.1,
+                          ),
+                          child: Text(item.$3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
         ),
-        NavigationDestination(
-          icon: Icon(Icons.checkroom_outlined),
-          selectedIcon: Icon(Icons.checkroom),
-          label: 'Wardrobe',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.auto_awesome_outlined),
-          selectedIcon: Icon(Icons.auto_awesome),
-          label: 'Style AI',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Profile',
-        ),
-      ],
+      ),
     );
   }
 }
