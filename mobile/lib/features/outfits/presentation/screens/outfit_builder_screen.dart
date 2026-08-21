@@ -13,7 +13,10 @@ import 'package:mobile/features/wardrobe/application/wardrobe_providers.dart';
 import 'package:mobile/features/wardrobe/data/models/wardrobe_models.dart';
 
 class OutfitBuilderScreen extends ConsumerStatefulWidget {
-  const OutfitBuilderScreen({required this.profileId, super.key});
+  const OutfitBuilderScreen({
+    required this.profileId,
+    super.key,
+  });
 
   final String profileId;
 
@@ -22,18 +25,23 @@ class OutfitBuilderScreen extends ConsumerStatefulWidget {
       _OutfitBuilderScreenState();
 }
 
-class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
+class _OutfitBuilderScreenState
+    extends ConsumerState<OutfitBuilderScreen> {
   final List<WardrobeItem> _selectedItems = [];
 
   String _category = 'All';
   Profile? _profile;
+
   bool _tryingOn = false;
   bool _sidebarOpen = false;
-  VirtualTryOnModel _tryOnModel = VirtualTryOnModel.replicate;
+
+  VirtualTryOnModel _tryOnModel =
+      VirtualTryOnModel.replicate;
 
   String _occasion = 'casual';
   String? _season;
   String? _mood;
+
   OutfitGenerateResponse? _generated;
   bool _generating = false;
 
@@ -55,7 +63,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           setState(() => _profile = profile);
         }
       } catch (_) {
-        // The wardrobe remains usable if profile loading fails.
+        // Wardrobe remains usable if profile loading fails.
       }
     });
   }
@@ -75,21 +83,27 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   void _clearSelection() {
-    setState(() => _selectedItems.clear());
+    setState(() {
+      _selectedItems.clear();
+      _sidebarOpen = false;
+    });
   }
 
   Future<void> _tryOnOutfit() async {
     if (_selectedItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Select at least one wardrobe item first.'),
+          content: Text(
+            'Select at least one wardrobe item first.',
+          ),
         ),
       );
       return;
     }
 
-    if (_profile?.vtoAssetUrl == null ||
-        _profile!.vtoAssetUrl!.trim().isEmpty) {
+    final vtoAssetUrl = _profile?.vtoAssetUrl;
+
+    if (vtoAssetUrl == null || vtoAssetUrl.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -120,7 +134,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           .generate(
             profileId: widget.profileId,
             request: VirtualTryOnRequest(
-              itemIds: _selectedItems.map((item) => item.id).toList(),
+              itemIds:
+                  _selectedItems.map((item) => item.id).toList(),
               model: _tryOnModel,
             ),
           );
@@ -128,6 +143,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pop();
+
       setState(() => _tryingOn = false);
 
       await Navigator.of(context).push(
@@ -135,7 +151,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           builder: (_) => VirtualTryOnResultScreen(
             profileId: widget.profileId,
             result: result,
-            selectedItems: List.unmodifiable(_selectedItems),
+            selectedItems:
+                List.unmodifiable(_selectedItems),
           ),
         ),
       );
@@ -143,6 +160,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pop();
+
       setState(() => _tryingOn = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,19 +178,25 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       barrierDismissible: false,
       builder: (_) {
         return const AlertDialog(
-          contentPadding: EdgeInsets.fromLTRB(24, 24, 24, 22),
+          contentPadding:
+              EdgeInsets.fromLTRB(24, 24, 24, 22),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
                 width: 42,
                 height: 42,
-                child: CircularProgressIndicator(strokeWidth: 3),
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                ),
               ),
               SizedBox(height: 20),
               Text(
                 'Creating your try-on',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               SizedBox(height: 7),
               Text(
@@ -236,14 +260,21 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       if (!mounted) return;
 
       setState(() => _generating = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not generate looks: $error')),
+        SnackBar(
+          content: Text(
+            'Could not generate looks: $error',
+          ),
+        ),
       );
     }
   }
 
   void _applySuggestion(OutfitSuggestion suggestion) {
-    final wardrobe = ref.read(wardrobeControllerProvider).items;
+    final wardrobe =
+        ref.read(wardrobeControllerProvider).items;
+
     final selected = <WardrobeItem>[];
 
     for (final generatedItem in suggestion.items) {
@@ -279,7 +310,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment:
+                  CrossAxisAlignment.stretch,
               children: [
                 const Text(
                   'Style with AI',
@@ -292,48 +324,105 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                 const SizedBox(height: 6),
                 const Text(
                   'Build a look from the wardrobe you already own.',
-                  style: TextStyle(color: LockMyLookUi.muted),
+                  style: TextStyle(
+                    color: LockMyLookUi.muted,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
                   initialValue: _occasion,
-                  decoration: const InputDecoration(labelText: 'Occasion'),
+                  decoration: const InputDecoration(
+                    labelText: 'Occasion',
+                  ),
                   items: const [
-                    DropdownMenuItem(value: 'casual', child: Text('Casual')),
-                    DropdownMenuItem(value: 'work', child: Text('Work')),
-                    DropdownMenuItem(value: 'party', child: Text('Party')),
-                    DropdownMenuItem(value: 'date', child: Text('Dinner Date')),
+                    DropdownMenuItem(
+                      value: 'casual',
+                      child: Text('Casual'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'work',
+                      child: Text('Work'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'party',
+                      child: Text('Party'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'date',
+                      child: Text('Dinner Date'),
+                    ),
                   ],
                   onChanged: (value) {
                     if (value != null) {
-                      setModalState(() => _occasion = value);
+                      setModalState(
+                        () => _occasion = value,
+                      );
                     }
                   },
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   initialValue: _season,
-                  decoration: const InputDecoration(labelText: 'Season'),
+                  decoration: const InputDecoration(
+                    labelText: 'Season',
+                  ),
                   items: const [
-                    DropdownMenuItem(value: null, child: Text('Any season')),
-                    DropdownMenuItem(value: 'summer', child: Text('Summer')),
-                    DropdownMenuItem(value: 'winter', child: Text('Winter')),
-                    DropdownMenuItem(value: 'spring', child: Text('Spring')),
-                    DropdownMenuItem(value: 'autumn', child: Text('Autumn')),
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text('Any season'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'summer',
+                      child: Text('Summer'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'winter',
+                      child: Text('Winter'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'spring',
+                      child: Text('Spring'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'autumn',
+                      child: Text('Autumn'),
+                    ),
                   ],
-                  onChanged: (value) => setModalState(() => _season = value),
+                  onChanged: (value) {
+                    setModalState(
+                      () => _season = value,
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   initialValue: _mood,
-                  decoration: const InputDecoration(labelText: 'Mood'),
+                  decoration: const InputDecoration(
+                    labelText: 'Mood',
+                  ),
                   items: const [
-                    DropdownMenuItem(value: null, child: Text('Any mood')),
-                    DropdownMenuItem(value: 'minimal', child: Text('Minimal')),
-                    DropdownMenuItem(value: 'smart', child: Text('Smart')),
-                    DropdownMenuItem(value: 'bold', child: Text('Bold')),
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text('Any mood'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'minimal',
+                      child: Text('Minimal'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'smart',
+                      child: Text('Smart'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'bold',
+                      child: Text('Bold'),
+                    ),
                   ],
-                  onChanged: (value) => setModalState(() => _mood = value),
+                  onChanged: (value) {
+                    setModalState(
+                      () => _mood = value,
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
@@ -343,8 +432,12 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                           Navigator.pop(sheetContext);
                           await _generateLooks();
                         },
-                  icon: const Icon(Icons.auto_awesome),
-                  label: const Text('Generate 5 Looks'),
+                  icon: const Icon(
+                    Icons.auto_awesome,
+                  ),
+                  label: const Text(
+                    'Generate 5 Looks',
+                  ),
                 ),
               ],
             ),
@@ -356,6 +449,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
 
   Future<void> _showSuggestions() async {
     final generated = _generated;
+
     if (generated == null) return;
 
     await showModalBottomSheet<void>(
@@ -367,40 +461,54 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           return const SafeArea(
             child: Padding(
               padding: EdgeInsets.all(24),
-              child: Text('No matching outfits were found.'),
+              child: Text(
+                'No matching outfits were found.',
+              ),
             ),
           );
         }
 
         return SafeArea(
           child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            padding:
+                const EdgeInsets.fromLTRB(20, 8, 20, 24),
             itemCount: generated.suggestions.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) =>
+                const SizedBox(height: 10),
             itemBuilder: (_, index) {
-              final suggestion = generated.suggestions[index];
+              final suggestion =
+                  generated.suggestions[index];
 
               return Container(
                 padding: const EdgeInsets.all(14),
-                decoration: LockMyLookUi.cardDecoration(),
+                decoration:
+                    LockMyLookUi.cardDecoration(),
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: CircleAvatar(
-                    backgroundColor: LockMyLookUi.coralSoft,
-                    foregroundColor: LockMyLookUi.coral,
+                    backgroundColor:
+                        LockMyLookUi.coralSoft,
+                    foregroundColor:
+                        LockMyLookUi.coral,
                     child: Text('${index + 1}'),
                   ),
                   title: Text(
                     'Look ${index + 1} · '
                     '${suggestion.score.toStringAsFixed(0)}%',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   subtitle: Text(
                     suggestion.reason,
                     maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    overflow:
+                        TextOverflow.ellipsis,
                   ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 15),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 15,
+                  ),
                   onTap: () {
                     _applySuggestion(suggestion);
                     Navigator.pop(sheetContext);
@@ -415,7 +523,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   }
 
   Future<void> _openWardrobePicker() async {
-    final items = ref.read(wardrobeControllerProvider).items;
+    final items =
+        ref.read(wardrobeControllerProvider).items;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -427,21 +536,34 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           builder: (context, setModalState) {
             final categories = <String>{
               'All',
-              ...items.map((item) => item.category.name),
+              ...items.map(
+                (item) => item.category.name,
+              ),
             }.toList();
 
             final filtered = _category == 'All'
                 ? items
                 : items
-                      .where((item) => item.category.name == _category)
-                      .toList();
+                    .where(
+                      (item) =>
+                          item.category.name ==
+                          _category,
+                    )
+                    .toList();
 
             return SizedBox(
-              height: MediaQuery.sizeOf(context).height * .78,
+              height:
+                  MediaQuery.sizeOf(context).height * .78,
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                    padding:
+                        const EdgeInsets.fromLTRB(
+                      18,
+                      4,
+                      18,
+                      8,
+                    ),
                     child: Row(
                       children: [
                         const Expanded(
@@ -449,17 +571,21 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                             'Your Wardrobe',
                             style: TextStyle(
                               fontSize: 19,
-                              fontWeight: FontWeight.w800,
-                              color: LockMyLookUi.ink,
+                              fontWeight:
+                                  FontWeight.w800,
+                              color:
+                                  LockMyLookUi.ink,
                             ),
                           ),
                         ),
                         Text(
                           '${_selectedItems.length} selected',
                           style: const TextStyle(
-                            color: LockMyLookUi.muted,
+                            color:
+                                LockMyLookUi.muted,
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight:
+                                FontWeight.w700,
                           ),
                         ),
                       ],
@@ -468,85 +594,140 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   SizedBox(
                     height: 58,
                     child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
                       scrollDirection: Axis.horizontal,
                       itemCount: categories.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: 8),
                       itemBuilder: (_, index) {
-                        final category = categories[index];
-                        final selected = _category == category;
+                        final category =
+                            categories[index];
+
+                        final selected =
+                            _category == category;
+
                         final count = category == 'All'
                             ? _selectedItems.length
                             : _selectedItems
-                                  .where(
-                                    (item) => item.category.name == category,
-                                  )
-                                  .length;
+                                .where(
+                                  (item) =>
+                                      item.category
+                                          .name ==
+                                      category,
+                                )
+                                .length;
 
                         return GestureDetector(
                           onTap: () {
-                            setState(() => _category = category);
+                            setState(
+                              () =>
+                                  _category = category,
+                            );
                             setModalState(() {});
                           },
                           child: Container(
-                            constraints: const BoxConstraints(minWidth: 72),
-                            padding: const EdgeInsets.symmetric(
+                            constraints:
+                                const BoxConstraints(
+                              minWidth: 72,
+                            ),
+                            padding:
+                                const EdgeInsets
+                                    .symmetric(
                               horizontal: 12,
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
                               color: selected
-                                  ? LockMyLookUi.coralSoft
+                                  ? LockMyLookUi
+                                      .coralSoft
                                   : Colors.white,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(16),
                               border: Border.all(
                                 color: selected
-                                    ? LockMyLookUi.coral.withAlpha(90)
-                                    : LockMyLookUi.border,
+                                    ? LockMyLookUi
+                                        .coral
+                                        .withAlpha(
+                                        90,
+                                      )
+                                    : LockMyLookUi
+                                        .border,
                               ),
                             ),
                             child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                              mainAxisSize:
+                                  MainAxisSize.min,
                               children: [
                                 Icon(
-                                  _categoryIcon(category),
+                                  _categoryIcon(
+                                    category,
+                                  ),
                                   size: 18,
                                   color: selected
-                                      ? LockMyLookUi.coral
-                                      : LockMyLookUi.muted,
+                                      ? LockMyLookUi
+                                          .coral
+                                      : LockMyLookUi
+                                          .muted,
                                 ),
-                                const SizedBox(width: 5),
+                                const SizedBox(
+                                  width: 5,
+                                ),
                                 Text(
                                   category == 'All'
                                       ? 'All'
-                                      : _categoryLabel(category),
+                                      : _categoryLabel(
+                                          category,
+                                        ),
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: selected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
+                                        ? FontWeight
+                                            .w800
+                                        : FontWeight
+                                            .w600,
                                     color: selected
-                                        ? LockMyLookUi.coral
-                                        : LockMyLookUi.ink,
+                                        ? LockMyLookUi
+                                            .coral
+                                        : LockMyLookUi
+                                            .ink,
                                   ),
                                 ),
                                 if (count > 0) ...[
-                                  const SizedBox(width: 4),
+                                  const SizedBox(
+                                    width: 4,
+                                  ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding:
+                                        const EdgeInsets
+                                            .symmetric(
                                       horizontal: 5,
                                       vertical: 2,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: LockMyLookUi.coral,
-                                      borderRadius: BorderRadius.circular(8),
+                                    decoration:
+                                        BoxDecoration(
+                                      color:
+                                          LockMyLookUi
+                                              .coral,
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(
+                                        8,
+                                      ),
                                     ),
                                     child: Text(
                                       '$count',
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style:
+                                          const TextStyle(
+                                        color:
+                                            Colors.white,
                                         fontSize: 8,
-                                        fontWeight: FontWeight.w800,
+                                        fontWeight:
+                                            FontWeight
+                                                .w800,
                                       ),
                                     ),
                                   ),
@@ -560,19 +741,28 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   ),
                   Expanded(
                     child: GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                      padding:
+                          const EdgeInsets.fromLTRB(
+                        16,
+                        8,
+                        16,
+                        20,
+                      ),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                            childAspectRatio: .76,
-                          ),
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 10,
+                        childAspectRatio: .76,
+                      ),
                       itemCount: filtered.length,
                       itemBuilder: (_, index) {
                         final item = filtered[index];
-                        final isSelected = _selectedItems.any(
-                          (selected) => selected.id == item.id,
+
+                        final isSelected =
+                            _selectedItems.any(
+                          (selected) =>
+                              selected.id == item.id,
                         );
 
                         return GestureDetector(
@@ -581,40 +771,63 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                             setModalState(() {});
                           },
                           child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF7F7F8),
-                              borderRadius: BorderRadius.circular(15),
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  const Color(0xFFF7F7F8),
+                              borderRadius:
+                                  BorderRadius.circular(
+                                15,
+                              ),
                               border: Border.all(
                                 color: isSelected
-                                    ? LockMyLookUi.coral
-                                    : LockMyLookUi.border,
-                                width: isSelected ? 2 : 1,
+                                    ? LockMyLookUi
+                                        .coral
+                                    : LockMyLookUi
+                                        .border,
+                                width: isSelected
+                                    ? 2
+                                    : 1,
                               ),
                             ),
-                            clipBehavior: Clip.antiAlias,
+                            clipBehavior:
+                                Clip.antiAlias,
                             child: Stack(
                               children: [
                                 Positioned.fill(
                                   child: Padding(
-                                    padding: const EdgeInsets.all(7),
+                                    padding:
+                                        const EdgeInsets
+                                            .all(7),
                                     child: Column(
                                       children: [
                                         Expanded(
-                                          child: _itemImage(
+                                          child:
+                                              _itemImage(
                                             item,
-                                            thumbnail: true,
+                                            thumbnail:
+                                                true,
                                           ),
                                         ),
-                                        const SizedBox(height: 5),
+                                        const SizedBox(
+                                          height: 5,
+                                        ),
                                         Align(
-                                          alignment: Alignment.centerLeft,
+                                          alignment:
+                                              Alignment
+                                                  .centerLeft,
                                           child: Text(
                                             item.name,
                                             maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
+                                            overflow:
+                                                TextOverflow
+                                                    .ellipsis,
+                                            style:
+                                                const TextStyle(
                                               fontSize: 10,
-                                              fontWeight: FontWeight.w700,
+                                              fontWeight:
+                                                  FontWeight
+                                                      .w700,
                                             ),
                                           ),
                                         ),
@@ -626,13 +839,17 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                                   const Positioned(
                                     top: 7,
                                     right: 7,
-                                    child: CircleAvatar(
+                                    child:
+                                        CircleAvatar(
                                       radius: 11,
-                                      backgroundColor: LockMyLookUi.coral,
+                                      backgroundColor:
+                                          LockMyLookUi
+                                              .coral,
                                       child: Icon(
                                         Icons.check,
                                         size: 14,
-                                        color: Colors.white,
+                                        color:
+                                            Colors.white,
                                       ),
                                     ),
                                   ),
@@ -662,11 +879,18 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
             Column(
               children: [
                 _header(),
-                Expanded(child: _tryOnWorkspace()),
+                Expanded(
+                  child: _tryOnWorkspace(),
+                ),
               ],
             ),
+
+            // Restored right-side selected outfit drawer.
             _selectedOutfitSidebar(),
-            if (_selectedItems.isNotEmpty && !_sidebarOpen)
+
+            // Restored collapsed side tab.
+            if (_selectedItems.isNotEmpty &&
+                !_sidebarOpen)
               _collapsedSidebarTab(),
           ],
         ),
@@ -676,7 +900,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
 
   Widget _header() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      padding:
+          const EdgeInsets.fromLTRB(16, 14, 16, 8),
       child: Row(
         children: [
           _glassIconButton(
@@ -686,7 +911,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   'VIRTUAL TRY-ON',
@@ -702,7 +928,7 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   'Style Studio',
                   style: TextStyle(
                     fontSize: 24,
-                    height: 1.0,
+                    height: 1,
                     fontWeight: FontWeight.w900,
                     color: LockMyLookUi.ink,
                   ),
@@ -726,7 +952,9 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     bool accent = false,
   }) {
     return Material(
-      color: accent ? LockMyLookUi.coral : Colors.white,
+      color: accent
+          ? LockMyLookUi.coral
+          : Colors.white,
       elevation: 0,
       shape: const CircleBorder(),
       child: InkWell(
@@ -738,7 +966,9 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
           child: Icon(
             icon,
             size: 20,
-            color: accent ? Colors.white : LockMyLookUi.ink,
+            color: accent
+                ? Colors.white
+                : LockMyLookUi.ink,
           ),
         ),
       ),
@@ -747,10 +977,14 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
 
   Widget _tryOnWorkspace() {
     final vtoAssetUrl = _profile?.vtoAssetUrl;
-    final hasProfile = vtoAssetUrl != null && vtoAssetUrl.trim().isNotEmpty;
+
+    final hasProfile =
+        vtoAssetUrl != null &&
+        vtoAssetUrl.trim().isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
+      padding:
+          const EdgeInsets.fromLTRB(14, 4, 14, 14),
       child: Column(
         children: [
           Expanded(
@@ -758,12 +992,15 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: const Color(0xFF11151C),
-                borderRadius: BorderRadius.circular(30),
+                borderRadius:
+                    BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withAlpha(22),
+                    color:
+                        Colors.black.withAlpha(22),
                     blurRadius: 28,
-                    offset: const Offset(0, 14),
+                    offset:
+                        const Offset(0, 14),
                   ),
                 ],
               ),
@@ -774,12 +1011,19 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                          begin:
+                              Alignment.topLeft,
+                          end:
+                              Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF171C25),
-                            const Color(0xFF0E1117),
-                            LockMyLookUi.coral.withAlpha(18),
+                            const Color(
+                              0xFF171C25,
+                            ),
+                            const Color(
+                              0xFF0E1117,
+                            ),
+                            LockMyLookUi.coral
+                                .withAlpha(18),
                           ],
                         ),
                       ),
@@ -788,23 +1032,41 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   if (hasProfile)
                     Positioned.fill(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 58, 12, 18),
+                        padding:
+                            const EdgeInsets.fromLTRB(
+                          12,
+                          58,
+                          12,
+                          18,
+                        ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius:
+                              BorderRadius.circular(
+                            24,
+                          ),
                           child: Container(
-                            color: const Color(0xFFFFF8F0),
+                            color:
+                                const Color(
+                              0xFFFFF8F0,
+                            ),
                             child: Image.network(
                               vtoAssetUrl,
                               fit: BoxFit.contain,
-                              alignment: Alignment.center,
-                              errorBuilder: (_, _, _) => _profilePlaceholder(),
+                              alignment:
+                                  Alignment.center,
+                              errorBuilder:
+                                  (_, _, _) =>
+                                      _profilePlaceholder(),
                             ),
                           ),
                         ),
                       ),
                     )
                   else
-                    Positioned.fill(child: _profilePlaceholder()),
+                    Positioned.fill(
+                      child:
+                          _profilePlaceholder(),
+                    ),
                   Positioned(
                     top: 14,
                     left: 14,
@@ -814,7 +1076,8 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                         _studioPill(
                           icon: Icons.circle,
                           label: 'LIVE PREVIEW',
-                          iconColor: LockMyLookUi.coral,
+                          iconColor:
+                              LockMyLookUi.coral,
                         ),
                         const Spacer(),
                         _compactModelSelector(),
@@ -838,23 +1101,38 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     Color iconColor = Colors.white,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 11,
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
-        color: Colors.black.withAlpha(105),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withAlpha(28)),
+        color:
+            Colors.black.withAlpha(105),
+        borderRadius:
+            BorderRadius.circular(18),
+        border: Border.all(
+          color:
+              Colors.white.withAlpha(28),
+        ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
-          Icon(icon, size: 8, color: iconColor),
+          Icon(
+            icon,
+            size: 8,
+            color: iconColor,
+          ),
           const SizedBox(width: 7),
           Text(
             label,
             style: const TextStyle(
               fontSize: 9,
               letterSpacing: .8,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
               color: Colors.white,
             ),
           ),
@@ -866,25 +1144,33 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   Widget _profilePlaceholder() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF171C25),
-        borderRadius: BorderRadius.circular(24),
+        color:
+            const Color(0xFF171C25),
+        borderRadius:
+            BorderRadius.circular(24),
       ),
       child: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
           children: [
             Container(
               width: 82,
               height: 82,
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(14),
+                color:
+                    Colors.white.withAlpha(14),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withAlpha(24)),
+                border: Border.all(
+                  color:
+                      Colors.white.withAlpha(24),
+                ),
               ),
               child: const Icon(
                 Icons.person_outline_rounded,
                 size: 40,
-                color: Color(0xFFB7BEC8),
+                color:
+                    Color(0xFFB7BEC8),
               ),
             ),
             const SizedBox(height: 16),
@@ -893,13 +1179,18 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 15,
-                fontWeight: FontWeight.w800,
+                fontWeight:
+                    FontWeight.w800,
               ),
             ),
             const SizedBox(height: 5),
             const Text(
               'Add a profile image to get started',
-              style: TextStyle(color: Color(0xFF9CA5B1), fontSize: 11),
+              style: TextStyle(
+                color:
+                    Color(0xFF9CA5B1),
+                fontSize: 11,
+              ),
             ),
           ],
         ),
@@ -910,36 +1201,54 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
   Widget _compactModelSelector() {
     return Container(
       height: 34,
-      padding: const EdgeInsets.only(left: 9, right: 4),
+      padding:
+          const EdgeInsets.only(
+        left: 9,
+        right: 4,
+      ),
       decoration: BoxDecoration(
-        color: Colors.black.withAlpha(125),
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: Colors.white.withAlpha(32)),
+        color:
+            Colors.black.withAlpha(125),
+        borderRadius:
+            BorderRadius.circular(17),
+        border: Border.all(
+          color:
+              Colors.white.withAlpha(32),
+        ),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<VirtualTryOnModel>(
+        child: DropdownButton<
+            VirtualTryOnModel>(
           value: _tryOnModel,
           icon: const Icon(
             Icons.keyboard_arrow_down_rounded,
             size: 15,
             color: Colors.white,
           ),
-          dropdownColor: const Color(0xFF1A1F29),
+          dropdownColor:
+              const Color(0xFF1A1F29),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 10,
-            fontWeight: FontWeight.w800,
+            fontWeight:
+                FontWeight.w800,
           ),
-          items: VirtualTryOnModel.values
+          items: VirtualTryOnModel
+              .values
               .map(
-                (model) => DropdownMenuItem<VirtualTryOnModel>(
+                (model) =>
+                    DropdownMenuItem<
+                        VirtualTryOnModel>(
                   value: model,
                   child: Text(
                     model.label,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style:
+                        const TextStyle(
+                      color:
+                          Colors.white,
                       fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                      fontWeight:
+                          FontWeight.w800,
                     ),
                   ),
                 ),
@@ -949,7 +1258,11 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
               ? null
               : (model) {
                   if (model != null) {
-                    setState(() => _tryOnModel = model);
+                    setState(
+                      () =>
+                          _tryOnModel =
+                              model,
+                    );
                   }
                 },
         ),
@@ -957,61 +1270,241 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // BOTTOM ACTION BAR
+  // ------------------------------------------------------------
+
   Widget _actionBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 54,
-            child: OutlinedButton.icon(
-              onPressed: _openWardrobePicker,
-              icon: const Icon(Icons.checkroom_outlined, size: 19),
-              label: const Text(
-                'Choose Pieces',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: LockMyLookUi.ink,
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: LockMyLookUi.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+    final selectedCount =
+        _selectedItems.length;
+
+    return Container(
+      padding:
+          const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(22),
+        border: Border.all(
+          color: LockMyLookUi.border,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Colors.black.withAlpha(14),
+            blurRadius: 18,
+            offset:
+                const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: SizedBox(
+              height: 58,
+              child: OutlinedButton(
+                onPressed:
+                    _openWardrobePicker,
+                style:
+                    OutlinedButton.styleFrom(
+                  foregroundColor:
+                      LockMyLookUi.ink,
+                  backgroundColor:
+                      const Color(
+                    0xFFFAFAFB,
+                  ),
+                  side: BorderSide(
+                    color:
+                        LockMyLookUi.border,
+                  ),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      17,
+                    ),
+                  ),
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 10,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            LockMyLookUi
+                                .coralSoft,
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          12,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons
+                            .checkroom_outlined,
+                        size: 19,
+                        color:
+                            LockMyLookUi
+                                .coral,
+                      ),
+                    ),
+                    const SizedBox(
+                      width: 9,
+                    ),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .center,
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+                        children: [
+                          const Text(
+                            'Wardrobe',
+                            maxLines: 1,
+                            overflow:
+                                TextOverflow
+                                    .ellipsis,
+                            style:
+                                TextStyle(
+                              fontSize: 13,
+                              fontWeight:
+                                  FontWeight
+                                      .w900,
+                              color:
+                                  LockMyLookUi
+                                      .ink,
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 2,
+                          ),
+                          Text(
+                            selectedCount == 0
+                                ? 'Choose pieces'
+                                : '$selectedCount selected',
+                            maxLines: 1,
+                            overflow:
+                                TextOverflow
+                                    .ellipsis,
+                            style:
+                                const TextStyle(
+                              fontSize: 9,
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
+                              color:
+                                  LockMyLookUi
+                                      .muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons
+                          .add_rounded,
+                      size: 19,
+                      color:
+                          LockMyLookUi
+                              .coral,
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: SizedBox(
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: _tryingOn ? null : _tryOnOutfit,
-              icon: Icon(
-                _tryingOn
-                    ? Icons.hourglass_top_rounded
-                    : Icons.auto_awesome_rounded,
-                size: 19,
-              ),
-              label: Text(
-                _tryingOn ? 'Creating...' : 'Try On',
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LockMyLookUi.coral,
-                foregroundColor: Colors.white,
-                elevation: 5,
-                shadowColor: LockMyLookUi.coral.withAlpha(80),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 5,
+            child: SizedBox(
+              height: 58,
+              child: ElevatedButton(
+                onPressed: _tryingOn
+                    ? null
+                    : _tryOnOutfit,
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      LockMyLookUi.coral,
+                  disabledBackgroundColor:
+                      LockMyLookUi.coral
+                          .withAlpha(120),
+                  foregroundColor:
+                      Colors.white,
+                  elevation: 4,
+                  shadowColor:
+                      LockMyLookUi.coral
+                          .withAlpha(75),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      17,
+                    ),
+                  ),
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 10,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment
+                          .center,
+                  children: [
+                    Icon(
+                      _tryingOn
+                          ? Icons
+                              .hourglass_top_rounded
+                          : Icons
+                              .auto_awesome_rounded,
+                      size: 19,
+                    ),
+                    const SizedBox(
+                      width: 7,
+                    ),
+                    Flexible(
+                      child: Text(
+                        _tryingOn
+                            ? 'Creating...'
+                            : 'Try On',
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow
+                                .ellipsis,
+                        style:
+                            const TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+
+  // ------------------------------------------------------------
+  // RESTORED COLLAPSED RIGHT SIDEBAR TAB
+  // ------------------------------------------------------------
 
   Widget _collapsedSidebarTab() {
     return Positioned(
@@ -1019,21 +1512,38 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
       top: 120,
       child: Material(
         color: Colors.white,
-        elevation: 5,
-        borderRadius: const BorderRadius.horizontal(left: Radius.circular(18)),
+        elevation: 7,
+        borderRadius:
+            const BorderRadius.horizontal(
+          left: Radius.circular(18),
+        ),
         child: InkWell(
-          onTap: () => setState(() => _sidebarOpen = true),
-          borderRadius: const BorderRadius.horizontal(
+          onTap: () {
+            setState(
+              () => _sidebarOpen = true,
+            );
+          },
+          borderRadius:
+              const BorderRadius.horizontal(
             left: Radius.circular(18),
           ),
           child: Container(
             width: 42,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.horizontal(
+            padding:
+                const EdgeInsets.symmetric(
+              vertical: 14,
+            ),
+            decoration:
+                const BoxDecoration(
+              borderRadius:
+                  BorderRadius.horizontal(
                 left: Radius.circular(18),
               ),
-              border: Border.all(color: LockMyLookUi.border),
+              border: Border.fromBorderSide(
+                BorderSide(
+                  color: LockMyLookUi.border,
+                ),
+              ),
             ),
             child: Column(
               children: [
@@ -1049,12 +1559,38 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                   color: LockMyLookUi.coral,
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  '${_selectedItems.length}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: LockMyLookUi.ink,
+                Container(
+                  constraints:
+                      const BoxConstraints(
+                    minWidth: 18,
+                    minHeight: 18,
+                  ),
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 4,
+                  ),
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        LockMyLookUi.coralSoft,
+                    borderRadius:
+                        BorderRadius.circular(
+                      9,
+                    ),
+                  ),
+                  alignment:
+                      Alignment.center,
+                  child: Text(
+                    '${_selectedItems.length}',
+                    style:
+                        const TextStyle(
+                      fontSize: 10,
+                      fontWeight:
+                          FontWeight.w900,
+                      color:
+                          LockMyLookUi.coral,
+                    ),
                   ),
                 ),
               ],
@@ -1065,51 +1601,107 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     );
   }
 
+  // ------------------------------------------------------------
+  // SELECTED OUTFIT SIDEBAR
+  // ------------------------------------------------------------
+
   Widget _selectedOutfitSidebar() {
-    final width = MediaQuery.sizeOf(context).width * .46;
+    final width =
+        MediaQuery.sizeOf(context).width *
+            .46;
 
     return AnimatedPositioned(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
+      duration:
+          const Duration(milliseconds: 260),
+      curve:
+          Curves.easeOutCubic,
       top: 0,
       bottom: 0,
-      right: _sidebarOpen ? 0 : -width - 8,
+      right: _sidebarOpen
+          ? 0
+          : -width - 8,
       width: width,
       child: Material(
         elevation: 12,
         color: Colors.white,
-        borderRadius: const BorderRadius.horizontal(left: Radius.circular(24)),
-        clipBehavior: Clip.antiAlias,
+        borderRadius:
+            const BorderRadius.horizontal(
+          left: Radius.circular(24),
+        ),
+        clipBehavior:
+            Clip.antiAlias,
         child: SafeArea(
           left: false,
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 10, 8),
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  12,
+                  10,
+                  10,
+                  8,
+                ),
                 child: Row(
                   children: [
                     const Expanded(
                       child: Text(
                         'Selected Outfit',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: LockMyLookUi.ink,
+                          fontWeight:
+                              FontWeight.w800,
+                          color:
+                              LockMyLookUi.ink,
                         ),
                       ),
                     ),
-                    Text(
-                      '${_selectedItems.length}',
-                      style: const TextStyle(
-                        color: LockMyLookUi.muted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                    Container(
+                      padding:
+                          const EdgeInsets
+                              .symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            LockMyLookUi
+                                .coralSoft,
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          10,
+                        ),
+                      ),
+                      child: Text(
+                        '${_selectedItems.length}',
+                        style:
+                            const TextStyle(
+                          color:
+                              LockMyLookUi
+                                  .coral,
+                          fontSize: 11,
+                          fontWeight:
+                              FontWeight.w900,
+                        ),
                       ),
                     ),
                     IconButton(
-                      onPressed: () => setState(() => _sidebarOpen = false),
-                      icon: const Icon(Icons.chevron_right),
-                      tooltip: 'Collapse',
+                      onPressed: () {
+                        setState(
+                          () =>
+                              _sidebarOpen =
+                                  false,
+                        );
+                      },
+                      icon:
+                          const Icon(
+                        Icons.chevron_right,
+                      ),
+                      tooltip:
+                          'Collapse',
                     ),
                   ],
                 ),
@@ -1117,22 +1709,38 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
               Container(
                 width: 34,
                 height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD5D9DE),
-                  borderRadius: BorderRadius.circular(4),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      const Color(
+                    0xFFD5D9DE,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(
+                    4,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
               Expanded(
-                child: _selectedItems.isEmpty
+                child: _selectedItems
+                        .isEmpty
                     ? const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(18),
+                          padding:
+                              EdgeInsets.all(
+                            18,
+                          ),
                           child: Text(
                             'No items selected.\nOpen Wardrobe to add pieces.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: LockMyLookUi.muted,
+                            textAlign:
+                                TextAlign
+                                    .center,
+                            style:
+                                TextStyle(
+                              color:
+                                  LockMyLookUi
+                                      .muted,
                               fontSize: 12,
                               height: 1.4,
                             ),
@@ -1140,58 +1748,123 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                         ),
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(10, 2, 10, 16),
-                        itemCount: _selectedItems.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, index) {
-                          final item = _selectedItems[index];
+                        padding:
+                            const EdgeInsets
+                                .fromLTRB(
+                          10,
+                          2,
+                          10,
+                          16,
+                        ),
+                        itemCount:
+                            _selectedItems
+                                .length,
+                        separatorBuilder:
+                            (_, _) =>
+                                const SizedBox(
+                          height: 10,
+                        ),
+                        itemBuilder:
+                            (_, index) {
+                          final item =
+                              _selectedItems[
+                                  index];
 
                           return Stack(
                             children: [
                               Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F6F7),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: LockMyLookUi.coral.withAlpha(170),
+                                width:
+                                    double.infinity,
+                                decoration:
+                                    BoxDecoration(
+                                  color:
+                                      const Color(
+                                    0xFFF5F6F7,
+                                  ),
+                                  borderRadius:
+                                      BorderRadius
+                                          .circular(
+                                    16,
+                                  ),
+                                  border:
+                                      Border.all(
+                                    color:
+                                        LockMyLookUi
+                                            .coral
+                                            .withAlpha(
+                                      170,
+                                    ),
                                   ),
                                 ),
-                                clipBehavior: Clip.antiAlias,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                clipBehavior:
+                                    Clip.antiAlias,
+                                child:
+                                    Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment
+                                          .start,
                                   children: [
                                     AspectRatio(
-                                      aspectRatio: .82,
-                                      child: _itemImage(item, thumbnail: false),
+                                      aspectRatio:
+                                          .82,
+                                      child:
+                                          _itemImage(
+                                        item,
+                                        thumbnail:
+                                            false,
+                                      ),
                                     ),
                                     Padding(
-                                      padding: const EdgeInsets.fromLTRB(
+                                      padding:
+                                          const EdgeInsets
+                                              .fromLTRB(
                                         8,
                                         7,
                                         8,
                                         9,
                                       ),
-                                      child: Column(
+                                      child:
+                                          Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment
+                                                .start,
                                         children: [
                                           Text(
-                                            _categoryLabel(item.category.name),
-                                            style: const TextStyle(
-                                              fontSize: 9,
-                                              color: LockMyLookUi.muted,
-                                              fontWeight: FontWeight.w600,
+                                            _categoryLabel(
+                                              item
+                                                  .category
+                                                  .name,
+                                            ),
+                                            style:
+                                                const TextStyle(
+                                              fontSize:
+                                                  9,
+                                              color:
+                                                  LockMyLookUi
+                                                      .muted,
+                                              fontWeight:
+                                                  FontWeight
+                                                      .w600,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
+                                          const SizedBox(
+                                            height:
+                                                2,
+                                          ),
                                           Text(
                                             item.name,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w800,
+                                            maxLines:
+                                                1,
+                                            overflow:
+                                                TextOverflow
+                                                    .ellipsis,
+                                            style:
+                                                const TextStyle(
+                                              fontSize:
+                                                  11,
+                                              fontWeight:
+                                                  FontWeight
+                                                      .w800,
                                             ),
                                           ),
                                         ],
@@ -1203,16 +1876,35 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                               Positioned(
                                 top: 6,
                                 right: 6,
-                                child: Material(
-                                  color: Colors.white,
-                                  shape: const CircleBorder(),
-                                  elevation: 2,
-                                  child: InkWell(
-                                    onTap: () => _toggleItem(item),
-                                    customBorder: const CircleBorder(),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(5),
-                                      child: Icon(Icons.close, size: 14),
+                                child:
+                                    Material(
+                                  color:
+                                      Colors.white,
+                                  shape:
+                                      const CircleBorder(),
+                                  elevation:
+                                      2,
+                                  child:
+                                      InkWell(
+                                    onTap: () =>
+                                        _toggleItem(
+                                      item,
+                                    ),
+                                    customBorder:
+                                        const CircleBorder(),
+                                    child:
+                                        const Padding(
+                                      padding:
+                                          EdgeInsets
+                                              .all(
+                                        5,
+                                      ),
+                                      child:
+                                          Icon(
+                                        Icons.close,
+                                        size:
+                                            14,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1223,24 +1915,52 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
                       ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 4, 10, 12),
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  10,
+                  4,
+                  10,
+                  12,
+                ),
                 child: Column(
                   children: [
                     SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _clearSelection,
-                        icon: const Icon(Icons.clear_all, size: 17),
-                        label: const Text('Clear'),
+                      width:
+                          double.infinity,
+                      child:
+                          OutlinedButton.icon(
+                        onPressed:
+                            _clearSelection,
+                        icon:
+                            const Icon(
+                          Icons.clear_all,
+                          size: 17,
+                        ),
+                        label:
+                            const Text(
+                          'Clear',
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(
+                      height: 8,
+                    ),
                     SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _openWardrobePicker,
-                        icon: const Icon(Icons.add, size: 17),
-                        label: const Text('Add More'),
+                      width:
+                          double.infinity,
+                      child:
+                          OutlinedButton.icon(
+                        onPressed:
+                            _openWardrobePicker,
+                        icon:
+                            const Icon(
+                          Icons.add,
+                          size: 17,
+                        ),
+                        label:
+                            const Text(
+                          'Add More',
+                        ),
                       ),
                     ),
                   ],
@@ -1253,17 +1973,26 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
     );
   }
 
-  Widget _itemImage(WardrobeItem item, {required bool thumbnail}) {
+  Widget _itemImage(
+    WardrobeItem item, {
+    required bool thumbnail,
+  }) {
     if (item.images.isNotEmpty) {
       return Image.network(
-        thumbnail ? item.images.first.thumbnailUrl : item.images.first.imageUrl,
+        thumbnail
+            ? item.images.first.thumbnailUrl
+            : item.images.first.imageUrl,
         fit: BoxFit.contain,
         errorBuilder: (_, _, _) =>
-            LockMyLookUi.imagePlaceholder(label: item.name),
+            LockMyLookUi.imagePlaceholder(
+          label: item.name,
+        ),
       );
     }
 
-    return LockMyLookUi.imagePlaceholder(label: item.category.name);
+    return LockMyLookUi.imagePlaceholder(
+      label: item.category.name,
+    );
   }
 
   String _categoryLabel(String value) {
@@ -1271,23 +2000,33 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
         .replaceAll('_', ' ')
         .replaceAll('-', ' ')
         .split(' ')
-        .where((part) => part.isNotEmpty)
+        .where(
+          (part) => part.isNotEmpty,
+        )
         .map(
           (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+              '${part[0].toUpperCase()}'
+              '${part.substring(1).toLowerCase()}',
         )
         .join(' ');
   }
 
-  IconData _categoryIcon(String category) {
-    final value = category.toLowerCase();
+  IconData _categoryIcon(
+    String category,
+  ) {
+    final value =
+        category.toLowerCase();
 
-    if (value == 'all') return Icons.auto_awesome;
+    if (value == 'all') {
+      return Icons.auto_awesome;
+    }
+
     if (value.contains('top') ||
         value.contains('shirt') ||
         value.contains('blouse')) {
       return Icons.checkroom;
     }
+
     if (value.contains('bottom') ||
         value.contains('pant') ||
         value.contains('jean') ||
@@ -1295,13 +2034,18 @@ class _OutfitBuilderScreenState extends ConsumerState<OutfitBuilderScreen> {
         value.contains('short')) {
       return Icons.dry_cleaning_outlined;
     }
+
     if (value.contains('shoe') ||
         value.contains('foot') ||
         value.contains('sneaker') ||
         value.contains('boot')) {
       return Icons.sports_soccer_outlined;
     }
-    if (value.contains('access')) return Icons.watch_outlined;
+
+    if (value.contains('access')) {
+      return Icons.watch_outlined;
+    }
+
     if (value.contains('outer') ||
         value.contains('jacket') ||
         value.contains('coat')) {
