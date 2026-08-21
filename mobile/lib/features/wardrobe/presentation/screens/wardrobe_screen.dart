@@ -105,22 +105,20 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              SliverToBoxAdapter(child: _hero(state.items.length)),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                sliver: SliverToBoxAdapter(child: _header(state.items.length)),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                 sliver: SliverToBoxAdapter(child: _search()),
               ),
-              SliverToBoxAdapter(child: _filters(state.items)),
+              SliverToBoxAdapter(child: _categories(state.items)),
+              if (filtered.isNotEmpty) SliverToBoxAdapter(child: _sectionHeader(filtered.length)),
               if (state.status == WardrobeStatus.loading && state.items.isEmpty)
                 const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
               else if (filtered.isEmpty)
                 SliverFillRemaining(child: _empty())
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                   sliver: SliverGrid(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _itemCard(filtered[index]),
@@ -128,8 +126,8 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                     ),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 14,
                       childAspectRatio: .69,
                     ),
                   ),
@@ -143,45 +141,52 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
     );
   }
 
-  Widget _header(int itemCount) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _roundIconButton(Icons.arrow_back_rounded, () => context.go(AppRoutes.home)),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _hero(int itemCount) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+      decoration: BoxDecoration(
+        color: LockMyLookUi.ink,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+        boxShadow: [BoxShadow(color: LockMyLookUi.ink.withValues(alpha: .18), blurRadius: 24, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              const Text('My Wardrobe', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: LockMyLookUi.ink, letterSpacing: -.7)),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Container(width: 7, height: 7, decoration: const BoxDecoration(color: LockMyLookUi.coral, shape: BoxShape.circle)),
-                  const SizedBox(width: 6),
-                  Text('$itemCount ${itemCount == 1 ? 'piece' : 'pieces'}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: LockMyLookUi.muted)),
-                ],
-              ),
+              _heroIcon(Icons.arrow_back_rounded, () => context.go(AppRoutes.home)),
+              const Spacer(),
+              _heroIcon(Icons.add_rounded, _openAddItem),
             ],
           ),
-        ),
-        _roundIconButton(Icons.add_rounded, _openAddItem, filled: true),
-      ],
+          const SizedBox(height: 20),
+          const Text('MY WARDROBE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 2.2, color: LockMyLookUi.coral)),
+          const SizedBox(height: 5),
+          const Text('Find your next\nfavorite look.', style: TextStyle(fontSize: 30, height: 1.05, fontWeight: FontWeight.w900, letterSpacing: -.8, color: Colors.white)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(width: 7, height: 7, decoration: const BoxDecoration(color: LockMyLookUi.coral, shape: BoxShape.circle)),
+              const SizedBox(width: 7),
+              Text('$itemCount ${itemCount == 1 ? 'piece' : 'pieces'} in your collection', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: .68))),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _roundIconButton(IconData icon, VoidCallback onTap, {bool filled = false}) {
+  Widget _heroIcon(IconData icon, VoidCallback onTap) {
     return Material(
-      color: filled ? LockMyLookUi.ink : Colors.white,
+      color: Colors.white.withValues(alpha: .10),
       shape: const CircleBorder(),
-      elevation: filled ? 4 : 0,
-      shadowColor: LockMyLookUi.ink.withValues(alpha: .16),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Icon(icon, size: 21, color: filled ? Colors.white : LockMyLookUi.ink),
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, size: 20, color: Colors.white),
         ),
       ),
     );
@@ -189,11 +194,12 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
 
   Widget _search() {
     return Container(
-      height: 54,
+      height: 56,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: LockMyLookUi.border),
+        boxShadow: [BoxShadow(color: LockMyLookUi.ink.withValues(alpha: .05), blurRadius: 16, offset: const Offset(0, 5))],
       ),
       child: TextField(
         controller: _searchController,
@@ -203,40 +209,82 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           border: InputBorder.none,
           prefixIcon: const Icon(Icons.search_rounded, size: 22, color: LockMyLookUi.ink),
           hintText: 'Search your wardrobe',
-          hintStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: LockMyLookUi.muted),
-          suffixIcon: IconButton(onPressed: () {}, icon: const Icon(Icons.tune_rounded, size: 20, color: LockMyLookUi.muted)),
+          hintStyle: const TextStyle(fontSize: 14, color: LockMyLookUi.muted),
+          suffixIcon: IconButton(onPressed: () {}, icon: const Icon(Icons.tune_rounded, size: 21, color: LockMyLookUi.ink)),
         ),
       ),
     );
   }
 
-  Widget _filters(List<WardrobeItem> items) {
+  Widget _categories(List<WardrobeItem> items) {
     final categories = <String>{'All', ...items.map((item) => item.category.name)}.toList();
     return SizedBox(
-      height: 62,
+      height: 102,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 13, 20, 9),
+        padding: const EdgeInsets.fromLTRB(20, 15, 20, 8),
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 9),
+        separatorBuilder: (_, _) => const SizedBox(width: 13),
         itemBuilder: (_, index) {
           final category = categories[index];
           final selected = _filter == category;
           return GestureDetector(
             onTap: () => setState(() => _filter = category),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? LockMyLookUi.ink : Colors.white,
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: selected ? LockMyLookUi.ink : LockMyLookUi.border),
+            child: SizedBox(
+              width: 61,
+              child: Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: selected ? LockMyLookUi.coral : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: selected ? LockMyLookUi.coral : LockMyLookUi.border),
+                      boxShadow: [if (!selected) BoxShadow(color: LockMyLookUi.ink.withValues(alpha: .035), blurRadius: 8, offset: const Offset(0, 3))],
+                    ),
+                    child: Icon(_categoryIcon(category), size: 23, color: selected ? Colors.white : LockMyLookUi.ink),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(_categoryLabel(category), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: selected ? LockMyLookUi.coral : LockMyLookUi.muted)),
+                ],
               ),
-              child: Text(category, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: selected ? Colors.white : LockMyLookUi.ink)),
             ),
           );
         },
+      ),
+    );
+  }
+
+  IconData _categoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'all': return Icons.grid_view_rounded;
+      case 'tops': return Icons.checkroom_rounded;
+      case 'bottoms': return Icons.straighten_rounded;
+      case 'dresses': return Icons.dry_cleaning_outlined;
+      case 'shoes': return Icons.directions_walk_rounded;
+      case 'accessories': return Icons.watch_outlined;
+      case 'outerwear': return Icons.layers_outlined;
+      default: return Icons.checkroom_outlined;
+    }
+  }
+
+  String _categoryLabel(String category) {
+    final value = category.toLowerCase();
+    if (value == 'all') return 'All';
+    return category[0].toUpperCase() + category.substring(1).toLowerCase();
+  }
+
+  Widget _sectionHeader(int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+      child: Row(
+        children: [
+          const Text('Your pieces', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: LockMyLookUi.ink)),
+          const Spacer(),
+          Text('$count items', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: LockMyLookUi.muted)),
+        ],
       ),
     );
   }
@@ -249,22 +297,22 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: LockMyLookUi.border.withValues(alpha: .7)),
-          boxShadow: [BoxShadow(color: LockMyLookUi.ink.withValues(alpha: .045), blurRadius: 18, offset: const Offset(0, 8))],
+          boxShadow: [BoxShadow(color: LockMyLookUi.ink.withValues(alpha: .055), blurRadius: 18, offset: const Offset(0, 7))],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              flex: 7,
+              flex: 8,
               child: Stack(
                 children: [
                   Positioned.fill(child: _itemImage(item)),
                   Positioned(
-                    top: 10,
-                    right: 10,
+                    top: 9,
+                    right: 9,
                     child: Material(
-                      color: Colors.white,
+                      color: Colors.white.withValues(alpha: .96),
                       shape: const CircleBorder(),
                       elevation: 1,
                       child: InkWell(
@@ -283,13 +331,13 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
             Expanded(
               flex: 4,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 8, 7),
+                padding: const EdgeInsets.fromLTRB(11, 9, 7, 7),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: LockMyLookUi.ink)),
+                    Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13.5, color: LockMyLookUi.ink)),
                     const SizedBox(height: 4),
-                    Text([item.category.name, if ((item.brand ?? '').isNotEmpty) item.brand!].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: LockMyLookUi.muted, fontWeight: FontWeight.w600)),
+                    Text([item.category.name, if ((item.brand ?? '').isNotEmpty) item.brand!].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: LockMyLookUi.muted, fontWeight: FontWeight.w600)),
                     const Spacer(),
                     Row(
                       children: [
@@ -297,13 +345,13 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                           Container(width: 8, height: 8, decoration: BoxDecoration(color: _colorForName(item.primaryColor!), shape: BoxShape.circle)),
                           const SizedBox(width: 5),
                         ],
-                        Expanded(child: Text(item.primaryColor ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, color: LockMyLookUi.muted))),
+                        Expanded(child: Text(item.primaryColor ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9.5, color: LockMyLookUi.muted))),
                         SizedBox(
-                          width: 30,
-                          height: 30,
+                          width: 28,
+                          height: 28,
                           child: PopupMenuButton<String>(
                             padding: EdgeInsets.zero,
-                            iconSize: 19,
+                            iconSize: 18,
                             onSelected: (value) {
                               if (value == 'delete') _deleteItem(item);
                               if (value == 'favorite') _toggleFavorite(item);
@@ -368,6 +416,23 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
     return origin.resolve('/$path').toString();
   }
 
+  Widget _addFab() {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: .30), blurRadius: 18, offset: const Offset(0, 8))],
+      ),
+      child: FloatingActionButton(
+        onPressed: _openAddItem,
+        elevation: 0,
+        backgroundColor: LockMyLookUi.coral,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: const Icon(Icons.add_rounded, size: 28),
+      ),
+    );
+  }
+
   Widget _empty() {
     return Center(
       child: Padding(
@@ -376,9 +441,9 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 82,
-              height: 82,
-              decoration: BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle, boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: .16), blurRadius: 22)]),
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle, boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: .14), blurRadius: 22)]),
               child: const Icon(Icons.checkroom_rounded, size: 38, color: LockMyLookUi.coral),
             ),
             const SizedBox(height: 18),
@@ -386,27 +451,9 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
             const SizedBox(height: 7),
             const Text('Add your first piece and start building looks that feel like you.', textAlign: TextAlign.center, style: TextStyle(color: LockMyLookUi.muted, height: 1.4)),
             const SizedBox(height: 20),
-            ElevatedButton.icon(onPressed: _openAddItem, icon: const Icon(Icons.add_rounded), label: const Text('Add to Wardrobe')),
+            ElevatedButton.icon(onPressed: _openAddItem, icon: const Icon(Icons.add_rounded), label: const Text('Add first item')),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _addFab() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(17),
-        boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: .28), blurRadius: 18, offset: const Offset(0, 7))],
-      ),
-      child: FloatingActionButton.extended(
-        onPressed: _openAddItem,
-        backgroundColor: LockMyLookUi.coral,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add item', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
     );
   }
