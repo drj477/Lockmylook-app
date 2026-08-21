@@ -129,30 +129,12 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
           children: [
-            Row(children: [IconButton(onPressed: () => context.go(AppRoutes.home), icon: const Icon(Icons.arrow_back)), const Expanded(child: Text('Profile', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: LockMyLookUi.ink)))]),
-            const SizedBox(height: 8),
-            const Text('Family Wardrobe', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: LockMyLookUi.ink)),
-            const SizedBox(height: 6),
-            const Text('Create profiles for everyone and keep each wardrobe separate.', style: TextStyle(color: LockMyLookUi.muted, height: 1.4)),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: LockMyLookUi.cardDecoration(),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                const Text('Add New Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: LockMyLookUi.ink)),
-                const SizedBox(height: 12),
-                TextField(controller: _nameController, textInputAction: TextInputAction.done, decoration: const InputDecoration(hintText: 'Profile name', prefixIcon: Icon(Icons.person_outline))),
-                const SizedBox(height: 12),
-                _tryOnPhotoPicker(),
-                const SizedBox(height: 8),
-                const Text('Save one clear full-body photo. LockMyLook will reuse it automatically for Virtual Try-On.', style: TextStyle(fontSize: 11, color: LockMyLookUi.muted, height: 1.35)),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(onPressed: isLoading ? null : _createProfile, icon: isLoading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add), label: Text(isLoading ? 'Saving...' : 'Create Profile')),
-              ]),
-            ),
+            _profileHeader(),
             const SizedBox(height: 22),
+            _createProfileCard(isLoading),
+            const SizedBox(height: 24),
             LockMyLookUi.sectionTitle('Profiles', action: '${state.profiles.length} total'),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             if (state.status == ProfileStatus.loading && state.profiles.isEmpty) const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
             else if (state.profiles.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No profiles yet.', style: TextStyle(color: LockMyLookUi.muted))))
             else ...state.profiles.map((profile) => Padding(padding: const EdgeInsets.only(bottom: 10), child: _profileCard(profile, isLoading))),
@@ -160,6 +142,144 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
         ),
       ),
       bottomNavigationBar: LmlBottomNav(currentIndex: 3, onTap: _nav),
+    );
+  }
+
+  Widget _profileHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 3,
+              shadowColor: Colors.black.withValues(alpha: 0.08),
+              child: IconButton(
+                onPressed: () => context.go(AppRoutes.home),
+                icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                color: LockMyLookUi.ink,
+                tooltip: 'Back',
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Profile', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: LockMyLookUi.ink)),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                LockMyLookUi.coralSoft.withValues(alpha: 0.34),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: [
+              BoxShadow(color: LockMyLookUi.coral.withValues(alpha: 0.10), blurRadius: 24, offset: const Offset(0, 10)),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.045), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: LockMyLookUi.coral,
+                  boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: 0.25), blurRadius: 14, offset: const Offset(0, 6))],
+                ),
+                child: const Icon(Icons.people_alt_outlined, color: Colors.white, size: 26),
+              ),
+              const SizedBox(width: 15),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Family Wardrobe', style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900, color: LockMyLookUi.ink, height: 1.05)),
+                    SizedBox(height: 7),
+                    Text('Everyone gets their own style space.', style: TextStyle(fontSize: 13, color: LockMyLookUi.muted, height: 1.3)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _createProfileCard(bool isLoading) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.055), blurRadius: 18, offset: const Offset(0, 7)),
+          BoxShadow(color: LockMyLookUi.coral.withValues(alpha: 0.06), blurRadius: 22, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: LockMyLookUi.coralSoft, borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.auto_awesome_rounded, color: LockMyLookUi.coral, size: 20),
+              ),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Create a new style profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: LockMyLookUi.ink)),
+                    SizedBox(height: 2),
+                    Text('Add a name and one full-body photo.', style: TextStyle(fontSize: 11.5, color: LockMyLookUi.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameController,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(hintText: 'Profile name', prefixIcon: Icon(Icons.person_outline)),
+          ),
+          const SizedBox(height: 12),
+          _tryOnPhotoPicker(),
+          const SizedBox(height: 9),
+          const Text('Save one clear full-body photo. LockMyLook will reuse it automatically for Virtual Try-On.', style: TextStyle(fontSize: 11, color: LockMyLookUi.muted, height: 1.35)),
+          const SizedBox(height: 13),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: isLoading ? null : _createProfile,
+              icon: isLoading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_rounded, size: 20),
+              label: Text(isLoading ? 'Saving...' : 'Create Profile'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LockMyLookUi.coral,
+                foregroundColor: Colors.white,
+                elevation: 5,
+                shadowColor: LockMyLookUi.coral.withValues(alpha: 0.28),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -194,23 +314,9 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
         ]),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(
-            child: _profileActionButton(
-              icon: isEditing ? Icons.close_rounded : Icons.add_a_photo_outlined,
-              label: isEditing ? 'Cancel' : 'Change Photo',
-              onPressed: isLoading ? null : () { setState(() { _editingProfileId = isEditing ? null : profile.id; _selectedTryOnPhoto = null; }); },
-              primary: false,
-            ),
-          ),
+          Expanded(child: _profileActionButton(icon: isEditing ? Icons.close_rounded : Icons.add_a_photo_outlined, label: isEditing ? 'Cancel' : 'Change Photo', onPressed: isLoading ? null : () { setState(() { _editingProfileId = isEditing ? null : profile.id; _selectedTryOnPhoto = null; }); }, primary: false)),
           const SizedBox(width: 10),
-          Expanded(
-            child: _profileActionButton(
-              icon: Icons.checkroom_rounded,
-              label: 'Wardrobe',
-              onPressed: isLoading ? null : () => context.push(AppRoutes.wardrobe, extra: profile.id),
-              primary: true,
-            ),
-          ),
+          Expanded(child: _profileActionButton(icon: Icons.checkroom_rounded, label: 'Wardrobe', onPressed: isLoading ? null : () => context.push(AppRoutes.wardrobe, extra: profile.id), primary: true)),
         ]),
         if (isEditing) ...[
           const SizedBox(height: 12),
@@ -241,43 +347,15 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
               borderRadius: BorderRadius.circular(16),
               border: primary ? null : Border.all(color: LockMyLookUi.coral.withValues(alpha: 0.22), width: 1),
               boxShadow: [
-                BoxShadow(
-                  color: primary ? LockMyLookUi.coral.withValues(alpha: 0.24) : Colors.black.withValues(alpha: 0.07),
-                  blurRadius: 12,
-                  offset: const Offset(0, 5),
-                  spreadRadius: 0,
-                ),
-                if (!primary)
-                  BoxShadow(
-                    color: LockMyLookUi.coral.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
+                BoxShadow(color: primary ? LockMyLookUi.coral.withValues(alpha: 0.24) : Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 5)),
+                if (!primary) BoxShadow(color: LockMyLookUi.coral.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: primary ? Colors.white.withValues(alpha: 0.16) : LockMyLookUi.coralSoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 16, color: foreground),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: foreground, letterSpacing: 0.1),
-                  ),
-                ),
-              ],
-            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(width: 28, height: 28, decoration: BoxDecoration(color: primary ? Colors.white.withValues(alpha: 0.16) : LockMyLookUi.coralSoft, shape: BoxShape.circle), child: Icon(icon, size: 16, color: foreground)),
+              const SizedBox(width: 8),
+              Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: foreground, letterSpacing: 0.1))),
+            ]),
           ),
         ),
       ),
