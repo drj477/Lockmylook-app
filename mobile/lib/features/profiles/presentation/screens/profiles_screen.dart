@@ -199,11 +199,18 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
               onPressed: isLoading ? null : () { setState(() { _editingProfileId = isEditing ? null : profile.id; _selectedTryOnPhoto = null; }); },
               icon: Icon(isEditing ? Icons.close : Icons.add_a_photo_outlined, size: 18),
               label: Text(isEditing ? 'Cancel' : 'Change Photo', maxLines: 1, overflow: TextOverflow.ellipsis),
-              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48), padding: const EdgeInsets.symmetric(horizontal: 10)),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48), fixedSize: const Size.fromHeight(48), padding: const EdgeInsets.symmetric(horizontal: 10)),
             ),
           ),
           const SizedBox(width: 10),
-          Expanded(child: ElevatedButton.icon(onPressed: isLoading ? null : () => context.push(AppRoutes.wardrobe, extra: profile.id), icon: const Icon(Icons.checkroom_outlined), label: const Text('Wardrobe'))),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: isLoading ? null : () => context.push(AppRoutes.wardrobe, extra: profile.id),
+              icon: const Icon(Icons.checkroom_outlined, size: 18),
+              label: const Text('Wardrobe', maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(0, 48), fixedSize: const Size.fromHeight(48), padding: const EdgeInsets.symmetric(horizontal: 10)),
+            ),
+          ),
         ]),
         if (isEditing) ...[
           const SizedBox(height: 12),
