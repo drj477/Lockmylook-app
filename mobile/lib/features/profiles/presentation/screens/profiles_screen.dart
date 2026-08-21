@@ -192,44 +192,23 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(profile.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: LockMyLookUi.ink)), const SizedBox(height: 4), Text(hasPhoto ? 'Try-On photo ready' : 'Add a Try-On photo', style: const TextStyle(fontSize: 12, color: LockMyLookUi.muted))])),
           IconButton(onPressed: isLoading ? null : () => ref.read(profileControllerProvider.notifier).deleteProfile(profile.id), icon: const Icon(Icons.delete_outline, color: LockMyLookUi.muted)),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(children: [
           Expanded(
-            child: OutlinedButton.icon(
+            child: _profileActionButton(
+              icon: isEditing ? Icons.close_rounded : Icons.add_a_photo_outlined,
+              label: isEditing ? 'Cancel' : 'Change Photo',
               onPressed: isLoading ? null : () { setState(() { _editingProfileId = isEditing ? null : profile.id; _selectedTryOnPhoto = null; }); },
-              icon: Icon(isEditing ? Icons.close : Icons.add_a_photo_outlined, size: 18),
-              label: Text(isEditing ? 'Cancel' : 'Change Photo', maxLines: 1, overflow: TextOverflow.ellipsis),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 48),
-                fixedSize: const Size.fromHeight(48),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                backgroundColor: Colors.white,
-                foregroundColor: LockMyLookUi.coral,
-                side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                elevation: 0,
-                shadowColor: LockMyLookUi.coral.withValues(alpha: 0.18),
-              ).copyWith(
-                surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-              ),
+              primary: false,
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: ElevatedButton.icon(
+            child: _profileActionButton(
+              icon: Icons.checkroom_rounded,
+              label: 'Wardrobe',
               onPressed: isLoading ? null : () => context.push(AppRoutes.wardrobe, extra: profile.id),
-              icon: const Icon(Icons.checkroom_outlined, size: 18),
-              label: const Text('Wardrobe', maxLines: 1, overflow: TextOverflow.ellipsis),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(0, 48),
-                fixedSize: const Size.fromHeight(48),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                backgroundColor: LockMyLookUi.coral,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                elevation: 4,
-                shadowColor: LockMyLookUi.coral.withValues(alpha: 0.28),
-              ),
+              primary: true,
             ),
           ),
         ]),
@@ -240,6 +219,68 @@ class _ProfilesScreenState extends ConsumerState<ProfilesScreen> {
           SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: isLoading || _selectedTryOnPhoto == null ? null : () => _updateTryOnPhoto(profile.id), icon: const Icon(Icons.save_outlined), label: const Text('Save Try-On Photo'))),
         ],
       ]),
+    );
+  }
+
+  Widget _profileActionButton({required IconData icon, required String label, required VoidCallback? onPressed, required bool primary}) {
+    final enabled = onPressed != null;
+    final background = primary ? LockMyLookUi.coral : Colors.white;
+    final foreground = primary ? Colors.white : LockMyLookUi.coral;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: enabled ? 1 : 0.45,
+          child: Container(
+            height: 46,
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(16),
+              border: primary ? null : Border.all(color: LockMyLookUi.coral.withValues(alpha: 0.22), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: primary ? LockMyLookUi.coral.withValues(alpha: 0.24) : Colors.black.withValues(alpha: 0.07),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                  spreadRadius: 0,
+                ),
+                if (!primary)
+                  BoxShadow(
+                    color: LockMyLookUi.coral.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: primary ? Colors.white.withValues(alpha: 0.16) : LockMyLookUi.coralSoft,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 16, color: foreground),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: foreground, letterSpacing: 0.1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
