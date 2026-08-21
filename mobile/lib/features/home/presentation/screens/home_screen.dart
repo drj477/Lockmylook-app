@@ -208,7 +208,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               LockMyLookUi.sectionTitle('My Profiles', action: 'Manage', onAction: () => context.push(AppRoutes.profiles)),
               const SizedBox(height: 10),
               SizedBox(
-                height: 88,
+                height: 98,
                 child: state.profiles.isEmpty
                     ? const Center(child: Text('Create a profile to get started', style: TextStyle(color: LockMyLookUi.muted)))
                     : ListView.separated(
@@ -372,35 +372,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 66,
+        width: 76,
         child: Column(
           children: [
             SizedBox(
-              width: 64,
-              height: 64,
+              width: 74,
+              height: 74,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   if (!isAdd)
                     Container(
-                      width: 64,
-                      height: 64,
+                      width: 74,
+                      height: 74,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: LockMyLookUi.coral,
-                          width: 1.5,
+                          width: 2.5,
                         ),
                       ),
                     ),
                   Container(
-                    width: selected ? 52 : 48,
-                    height: selected ? 52 : 48,
+                    width: selected ? 62 : 58,
+                    height: selected ? 62 : 58,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isAdd ? Colors.white : LockMyLookUi.coralSoft,
                       border: isAdd
-                          ? Border.all(color: LockMyLookUi.border, width: 1.5)
+                          ? Border.all(color: LockMyLookUi.border, width: 3.5)
                           : null,
                     ),
                     child: ClipOval(
