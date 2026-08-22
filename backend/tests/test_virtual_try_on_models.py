@@ -26,3 +26,12 @@ def test_virtual_try_on_request_accepts_gemini_chat():
     )
 
     assert request.model is VirtualTryOnModel.GEMINI_CHAT
+
+
+def test_virtual_try_on_request_accepts_d_tryon():
+    request = VirtualTryOnRequest(
+        item_ids=[uuid4()],
+        model=VirtualTryOnModel.D_TRYON,
+    )
+
+    assert request.model is VirtualTryOnModel.D_TRYON

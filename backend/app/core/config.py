@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Virtual Try-On
     REPLICATE_API_TOKEN: str = ""
 
+    # Direct Pruna P-Image-Try-On provider (D-Tryon).
+    PRUNA_API_KEY: str = ""
+    PRUNA_PUBLIC_BASE_URL: str = ""
+
     # Existing Gemini image provider.
     GEMINI_API_KEY: str = ""
     GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"

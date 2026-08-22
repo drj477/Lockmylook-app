@@ -14,6 +14,7 @@ from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
 
+from .d_tryon_provider import DTryOnVirtualTryOnProvider
 from .gemini_chat.client import (
     GeminiChatAuthenticationError,
     GeminiChatConfigurationError,
@@ -152,6 +153,11 @@ class VirtualTryOnService:
                     status_code=503,
                     detail="Replicate Virtual Try-On is not configured. Add REPLICATE_API_TOKEN to backend/.env.",
                 ) from error
+            if "PRUNA_API_KEY" in detail or "PRUNA_PUBLIC_BASE_URL" in detail:
+                raise HTTPException(
+                    status_code=503,
+                    detail=detail,
+                ) from error
             logger.exception(
                 "Virtual Try-On provider failed: profile={} model={}",
                 profile.id,
@@ -220,6 +226,9 @@ class VirtualTryOnService:
             if self._gemini_chat_provider is None:
                 self._gemini_chat_provider = GeminiChatVirtualTryOnProvider(settings)
             return self._gemini_chat_provider
+
+        if model is VirtualTryOnModel.D_TRYON:
+            return DTryOnVirtualTryOnProvider(settings)
 
         raise HTTPException(status_code=422, detail=f"Unsupported Virtual Try-On model: {model}")
 
