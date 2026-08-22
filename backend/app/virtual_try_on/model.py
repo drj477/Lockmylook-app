@@ -10,6 +10,7 @@ class VirtualTryOnModel(str, Enum):
     REPLICATE = "replicate"
     GEMINI = "gemini"
     GEMINI_CHAT = "gemini_chat"
+    D_TRYON = "d_tryon"
 
 
 class VirtualTryOnResult(SQLModel, table=True):
