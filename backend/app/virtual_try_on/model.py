@@ -21,6 +21,7 @@ class VirtualTryOnResult(SQLModel, table=True):
     image_url: str = Field(nullable=False)
     item_ids_json: str = Field(nullable=False)
     model: str = Field(nullable=False, default=VirtualTryOnModel.REPLICATE.value)
+    cache_key: str | None = Field(default=None, max_length=64, index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         nullable=False,
