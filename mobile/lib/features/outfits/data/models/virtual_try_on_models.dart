@@ -2,6 +2,7 @@ enum VirtualTryOnModel {
   replicate,
   gemini,
   geminiChat,
+  dTryon,
 }
 
 extension VirtualTryOnModelX on VirtualTryOnModel {
@@ -9,12 +10,14 @@ extension VirtualTryOnModelX on VirtualTryOnModel {
         VirtualTryOnModel.replicate => 'replicate',
         VirtualTryOnModel.gemini => 'gemini',
         VirtualTryOnModel.geminiChat => 'gemini_chat',
+        VirtualTryOnModel.dTryon => 'd_tryon',
       };
 
   String get label => switch (this) {
         VirtualTryOnModel.replicate => 'Replicate',
         VirtualTryOnModel.gemini => 'Gemini',
         VirtualTryOnModel.geminiChat => 'Gemini Chat',
+        VirtualTryOnModel.dTryon => 'D-Tryon',
       };
 }
 
@@ -31,7 +34,6 @@ class VirtualTryOnRequest {
         'item_ids': itemIds,
         'model': model.value,
       };
-}
 
 class VirtualTryOnResult {
   const VirtualTryOnResult({
