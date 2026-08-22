@@ -7,13 +7,14 @@ from fastapi import HTTPException
 from loguru import logger
 from PIL import Image
 from replicate.exceptions import ModelError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.config import get_settings
 from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
 
+from .cache import build_vto_cache_key
 from .d_tryon_provider import DTryOnVirtualTryOnProvider
 from .gemini_chat.client import (
     GeminiChatAuthenticationError,
@@ -75,6 +76,7 @@ class VirtualTryOnService:
         person_path = self._resolve_local_path(profile.vto_asset_url)
         garment_paths: list[Path] = []
         garment_names: list[str] = []
+        item_ids = [item.id for item in items]
 
         for item in items:
             if not item.images:
@@ -86,6 +88,39 @@ class VirtualTryOnService:
             image = sorted(item.images, key=lambda value: value.display_order)[0]
             garment_paths.append(self._resolve_local_path(image.image_url))
             garment_names.append(item.name)
+
+        cache_key = build_vto_cache_key(
+            profile_id=profile.id,
+            person_path=person_path,
+            garment_paths=garment_paths,
+            item_ids=item_ids,
+            model=model.value,
+        )
+
+        cached_result = session.exec(
+            select(VirtualTryOnResult).where(
+                VirtualTryOnResult.profile_id == profile.id,
+                VirtualTryOnResult.model == model.value,
+                VirtualTryOnResult.cache_key == cache_key,
+            )
+        ).first()
+
+        if cached_result is not None:
+            logger.info(
+                "Virtual Try-On cache hit: profile={} result={} model={} hash={}",
+                profile.id,
+                cached_result.id,
+                model.value,
+                cache_key,
+            )
+            return cached_result
+
+        logger.info(
+            "Virtual Try-On cache miss: profile={} model={} hash={}",
+            profile.id,
+            model.value,
+            cache_key,
+        )
 
         prompt = self._build_prompt(garment_names)
         provider = self._provider(model, settings)
@@ -200,17 +235,19 @@ class VirtualTryOnService:
             image_url=f"/uploads/tryon/{filename}",
             item_ids_json=json.dumps([str(item.id) for item in items]),
             model=model.value,
+            cache_key=cache_key,
         )
         session.add(result)
         session.commit()
         session.refresh(result)
 
         logger.info(
-            "Virtual Try-On completed: profile={} result={} model={} path={}",
+            "Virtual Try-On completed: profile={} result={} model={} path={} hash={}",
             profile.id,
             result.id,
             model.value,
             output_path,
+            cache_key,
         )
 
         return result
