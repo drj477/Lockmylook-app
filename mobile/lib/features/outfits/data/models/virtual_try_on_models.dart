@@ -34,6 +34,7 @@ class VirtualTryOnRequest {
         'item_ids': itemIds,
         'model': model.value,
       };
+}
 
 class VirtualTryOnResult {
   const VirtualTryOnResult({
