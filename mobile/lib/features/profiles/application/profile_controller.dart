@@ -45,9 +45,23 @@ class ProfileController extends Notifier<ProfileState> {
   Future<void> loadProfiles() async {
     state = state.copyWith(status: ProfileStatus.loading, clearError: true);
 
+    // Keep the currently selected profile while the network request is in
+    // progress. The first profile is the app-wide active-profile fallback.
+    final selectedProfileId = state.profiles.isEmpty
+        ? null
+        : state.profiles.first.id;
+
     try {
-      final profiles = await _repository.listProfiles();
-      state = ProfileState(status: ProfileStatus.loaded, profiles: profiles);
+      final fetchedProfiles = await _repository.listProfiles();
+      final profiles = _restoreSelectedProfile(
+        fetchedProfiles,
+        selectedProfileId,
+      );
+
+      state = ProfileState(
+        status: ProfileStatus.loaded,
+        profiles: profiles,
+      );
     } catch (error) {
       state = state.copyWith(
         status: ProfileStatus.error,
@@ -56,15 +70,18 @@ class ProfileController extends Notifier<ProfileState> {
     }
   }
 
-  /// Make the profile used most recently by a profile-scoped feature the
-  /// active profile. The rest of the app already uses the first profile as
-  /// its active-profile fallback, so keeping the selected profile first keeps
-  /// those existing navigation paths profile-correct without introducing a
-  /// second source of truth.
+  /// Keep the selected profile first so all existing profile-scoped screens
+  /// that use the first profile continue to operate on the same profile.
+  ///
+  /// The API is free to return profiles in its own order; that order must not
+  /// silently replace the user's current selection when another screen calls
+  /// loadProfiles().
   void selectProfile(String profileId) {
-    final index = state.profiles.indexWhere((profile) => profile.id == profileId);
+    final index = state.profiles.indexWhere(
+      (profile) => profile.id == profileId,
+    );
 
-    if (index <= 0) {
+    if (index < 0 || index == 0) {
       return;
     }
 
@@ -76,6 +93,30 @@ class ProfileController extends Notifier<ProfileState> {
     ];
 
     state = state.copyWith(profiles: profiles);
+  }
+
+  List<Profile> _restoreSelectedProfile(
+    List<Profile> fetchedProfiles,
+    String? selectedProfileId,
+  ) {
+    if (fetchedProfiles.isEmpty || selectedProfileId == null) {
+      return fetchedProfiles;
+    }
+
+    final index = fetchedProfiles.indexWhere(
+      (profile) => profile.id == selectedProfileId,
+    );
+
+    if (index <= 0) {
+      return fetchedProfiles;
+    }
+
+    final selected = fetchedProfiles[index];
+    return <Profile>[
+      selected,
+      ...fetchedProfiles.take(index),
+      ...fetchedProfiles.skip(index + 1),
+    ];
   }
 
   Future<bool> createProfile({required String name, String? avatarUrl}) async {
