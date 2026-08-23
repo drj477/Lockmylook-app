@@ -22,9 +22,7 @@ class VirtualTryOnApi {
       ),
     );
 
-    return VirtualTryOnResult.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    return VirtualTryOnResult.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<VirtualTryOnSaveResult> setSaved({
@@ -37,8 +35,28 @@ class VirtualTryOnApi {
       queryParameters: {'saved': saved},
     );
 
-    return VirtualTryOnSaveResult.fromJson(
-      response.data as Map<String, dynamic>,
+    return VirtualTryOnSaveResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<List<VirtualTryOnResult>> history({required String profileId}) async {
+    final response = await _apiClient.dio.get(
+      '${ApiEndpoints.profiles}/$profileId/try-on/history',
+    );
+
+    return (response.data as List<dynamic>)
+        .map((item) => VirtualTryOnResult.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> delete({required String profileId, required String resultId}) async {
+    await _apiClient.dio.delete(
+      '${ApiEndpoints.profiles}/$profileId/try-on/$resultId',
+    );
+  }
+
+  Future<void> deleteAll({required String profileId}) async {
+    await _apiClient.dio.delete(
+      '${ApiEndpoints.profiles}/$profileId/try-on/cache',
     );
   }
 }

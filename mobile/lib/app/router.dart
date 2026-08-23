@@ -7,7 +7,9 @@ import 'package:mobile/features/auth/presentation/screens/register_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:mobile/features/outfits/presentation/screens/outfit_builder_screen.dart';
+import 'package:mobile/features/outfits/presentation/screens/vto_history_screen.dart';
 import 'package:mobile/features/profiles/presentation/screens/profiles_screen.dart';
+import 'package:mobile/features/settings/presentation/screens/settings_screen.dart';
 import 'package:mobile/features/splash/presentation/screens/splash_screen.dart';
 import 'package:mobile/features/wardrobe/presentation/screens/wardrobe_screen.dart';
 
@@ -21,50 +23,22 @@ class AppRouter {
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
     routes: [
-      GoRoute(
-        path: AppRoutes.splash,
-        name: 'splash',
-        builder: (_, _) => const SplashScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.welcome,
-        name: 'welcome',
-        builder: (_, _) => const WelcomeScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.login,
-        name: 'login',
-        builder: (_, _) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.register,
-        name: 'register',
-        builder: (_, _) => const RegisterScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.home,
-        name: 'home',
-        builder: (_, _) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.profiles,
-        name: 'profiles',
-        builder: (_, _) => const ProfilesScreen(),
-      ),
+      GoRoute(path: AppRoutes.splash, name: 'splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: AppRoutes.welcome, name: 'welcome', builder: (_, _) => const WelcomeScreen()),
+      GoRoute(path: AppRoutes.login, name: 'login', builder: (_, _) => const LoginScreen()),
+      GoRoute(path: AppRoutes.register, name: 'register', builder: (_, _) => const RegisterScreen()),
+      GoRoute(path: AppRoutes.home, name: 'home', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: AppRoutes.settings, name: 'settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(path: AppRoutes.vtoHistory, name: 'vto-history', builder: (_, _) => const VtoHistoryScreen()),
+      GoRoute(path: AppRoutes.profiles, name: 'profiles', builder: (_, _) => const ProfilesScreen()),
       GoRoute(
         path: AppRoutes.wardrobe,
         name: 'wardrobe',
         builder: (context, state) {
           final profileId = state.extra as String?;
-
           if (profileId == null || profileId.isEmpty) {
-            return const Scaffold(
-              body: Center(
-                child: Text('A profile is required to view a wardrobe.'),
-              ),
-            );
+            return const Scaffold(body: Center(child: Text('A profile is required to view a wardrobe.')));
           }
-
           return WardrobeScreen(profileId: profileId);
         },
       ),
@@ -73,27 +47,16 @@ class AppRouter {
         name: 'outfits',
         builder: (context, state) {
           final profileId = state.extra as String?;
-
           if (profileId == null || profileId.isEmpty) {
-            return const Scaffold(
-              body: Center(
-                child: Text('A profile is required to build an outfit.'),
-              ),
-            );
+            return const Scaffold(body: Center(child: Text('A profile is required to build an outfit.')));
           }
-
           return OutfitBuilderScreen(profileId: profileId);
         },
       ),
     ],
     errorBuilder: (_, state) => Scaffold(
       appBar: AppBar(title: const Text('404')),
-      body: Center(
-        child: Text(
-          'No route found:\n${state.uri}',
-          textAlign: TextAlign.center,
-        ),
-      ),
+      body: Center(child: Text('No route found:\n${state.uri}', textAlign: TextAlign.center)),
     ),
   );
 }
