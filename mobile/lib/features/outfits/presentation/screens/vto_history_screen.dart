@@ -35,8 +35,15 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
     }
     _profileId = profiles.first.id;
     try {
-      final results = await ref.read(virtualTryOnRepositoryProvider).history(profileId: _profileId!);
-      if (mounted) setState(() { _results = results; _loading = false; });
+      final results = await ref.read(virtualTryOnRepositoryProvider).history(
+            profileId: _profileId!,
+          );
+      if (mounted) {
+        setState(() {
+          _results = results;
+          _loading = false;
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _loading = false);
@@ -58,7 +65,11 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
             profileId: _profileId!,
             resultId: result.id,
           );
-      if (mounted) setState(() => _results = _results.where((item) => item.id != result.id).toList());
+      if (mounted) {
+        setState(() {
+          _results = _results.where((item) => item.id != result.id).toList();
+        });
+      }
     } catch (error) {
       _message('Could not delete this look: $error');
     } finally {
@@ -76,7 +87,9 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
 
     setState(() => _deleting = true);
     try {
-      await ref.read(virtualTryOnRepositoryProvider).deleteAll(profileId: _profileId!);
+      await ref.read(virtualTryOnRepositoryProvider).deleteAll(
+            profileId: _profileId!,
+          );
       if (mounted) setState(() => _results = const []);
     } catch (error) {
       _message('Could not clear VTO history: $error');
@@ -92,22 +105,33 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
             title: Text(title),
             content: Text(message),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete'),
+              ),
             ],
           ),
         ) ??
         false;
   }
 
-  void _message(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _message(String message) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
       appBar: AppBar(
-        title: const Text('VTO History & Saved Looks', style: TextStyle(fontWeight: FontWeight.w900)),
+        title: const Text(
+          'VTO History & Saved Looks',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
         actions: [
           if (_results.isNotEmpty)
             IconButton(
@@ -137,7 +161,11 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
   Widget _resultCard(VirtualTryOnResult result) {
     return Container(
       height: 128,
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: Colors.black.withAlpha(8))),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.black.withAlpha(8)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Row(
         children: [
@@ -147,26 +175,60 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
             child: Image.network(
               result.imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(color: LockMyLookUi.coralSoft, child: const Icon(Icons.image_not_supported_outlined)),
+              errorBuilder: (_, _, _) => Container(
+                color: LockMyLookUi.coralSoft,
+                child: const Icon(Icons.image_not_supported_outlined),
+              ),
             ),
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 8, 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_modelLabel(result.model), style: const TextStyle(color: LockMyLookUi.coral, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .7)),
-                  const SizedBox(height: 5),
-                  Text('${result.itemIds.length} garment${result.itemIds.length == 1 ? '' : 's'}', style: const TextStyle(fontWeight: FontWeight.w800, color: LockMyLookUi.ink)),
-                  const SizedBox(height: 3),
-                  Text(_date(result.createdAt), style: const TextStyle(fontSize: 10, color: LockMyLookUi.muted)),
+                  Text(
+                    _modelLabel(result.model),
+                    style: const TextStyle(
+                      color: LockMyLookUi.coral,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .7,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${result.itemIds.length} garment${result.itemIds.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: LockMyLookUi.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _date(result.createdAt),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: LockMyLookUi.muted,
+                    ),
+                  ),
                   const Spacer(),
-                  TextButton.icon(
-                    onPressed: _deleting ? null : () => _deleteOne(result),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 28)),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 17),
-                    label: const Text('Delete'),
+                  SizedBox(
+                    height: 30,
+                    child: TextButton.icon(
+                      onPressed: _deleting ? null : () => _deleteOne(result),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        alignment: Alignment.centerLeft,
+                      ),
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        size: 17,
+                      ),
+                      label: const Text('Delete'),
+                    ),
                   ),
                 ],
               ),
@@ -183,11 +245,30 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 72, height: 72, decoration: BoxDecoration(color: LockMyLookUi.coralSoft, borderRadius: BorderRadius.circular(24)), child: const Icon(Icons.auto_awesome_mosaic_outlined, color: LockMyLookUi.coral, size: 34)),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: LockMyLookUi.coralSoft,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_mosaic_outlined,
+                  color: LockMyLookUi.coral,
+                  size: 34,
+                ),
+              ),
               const SizedBox(height: 16),
-              const Text('No generated looks yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const Text(
+                'No generated looks yet',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
               const SizedBox(height: 6),
-              const Text('Your generated try-on results will appear here. You can delete individual results later without touching your wardrobe.', textAlign: TextAlign.center, style: TextStyle(color: LockMyLookUi.muted, height: 1.4)),
+              const Text(
+                'Your generated try-on results will appear here. You can delete individual results later without touching your wardrobe.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: LockMyLookUi.muted, height: 1.4),
+              ),
             ],
           ),
         ),
