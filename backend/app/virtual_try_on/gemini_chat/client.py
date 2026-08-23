@@ -23,19 +23,19 @@ class GeminiChatClient:
     """
     Gemini Chat client for LockMyLook.
 
-    Credential strategy:
+    Credential/session strategy:
 
-    1. GEMINI_CHAT_COOKIE_JSON is used as the bootstrap credential source.
-    2. gemini_webapi stores the authenticated/rotated session in
-       GEMINI_COOKIE_PATH.
-    3. On subsequent initializations gemini_webapi tries the cached session
-       before the bootstrap cookies.
-    4. gemini_webapi automatically rotates __Secure-1PSIDTS in the background.
-    5. The refreshed cookie cache therefore becomes the persistent session
-       source across backend restarts.
+    1. GEMINI_CHAT_COOKIE_JSON is the bootstrap credential source.
+    2. GEMINI_COOKIE_PATH tells gemini_webapi where its persistent cookie
+       cache lives.
+    3. gemini_webapi owns cache discovery, cache invalidation, cookie
+       rotation, and cache persistence.
+    4. auto_refresh keeps the authenticated session alive and lets
+       gemini_webapi save rotated cookies into its cache.
+    5. This class deliberately does NOT read, select, delete, or write
+       .cached_cookies_*.json files itself.
 
-    The browser-exported cookie JSON is NOT rewritten by this class.
-    The cache maintained by gemini_webapi is the mutable credential store.
+    The browser-exported cookie JSON is never rewritten by this class.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -50,19 +50,7 @@ class GeminiChatClient:
         self._generation_lock = asyncio.Lock()
 
     async def _get_client(self) -> GeminiClient:
-        """
-        Return the authenticated Gemini client.
-
-        The important part here is that GEMINI_COOKIE_PATH is configured
-        BEFORE GeminiClient.init() is called.
-
-        gemini_webapi then performs:
-
-            cached cookies -> bootstrap cookies -> browser cookies
-
-        with cached cookies taking priority when the same __Secure-1PSID
-        exists in the cache.
-        """
+        """Return the current authenticated Gemini client."""
 
         client = self._client
 
@@ -71,7 +59,7 @@ class GeminiChatClient:
                 if client.account_status.name == "AVAILABLE":
                     return client
             except Exception:
-                # If the existing client has become unusable, rebuild it.
+                # Rebuild an unusable client below.
                 pass
 
         async with self._init_lock:
@@ -85,29 +73,22 @@ class GeminiChatClient:
                     pass
 
             # ------------------------------------------------------------
-            # Configure persistent cookie cache FIRST.
+            # Configure gemini_webapi's persistent cache BEFORE init().
+            #
+            # gemini_webapi owns the .cached_cookies_*.json lifecycle.
             # ------------------------------------------------------------
             cache_dir = self._resolve_cache_dir()
             cache_dir.mkdir(parents=True, exist_ok=True)
-
-            # gemini_webapi reads this environment variable dynamically.
             os.environ["GEMINI_COOKIE_PATH"] = str(cache_dir)
 
             # ------------------------------------------------------------
-            # Load bootstrap credentials.
+            # Load only the bootstrap credentials.
             #
-            # These are only needed to identify the account/session on the
-            # first run or if the persistent cache is unavailable.
+            # We intentionally do not inspect the gemini_webapi cache here.
             # ------------------------------------------------------------
             cookie_path = self._resolve_cookie_path()
             secure_1psid, secure_1psidts = self._load_cookies(cookie_path)
 
-            # ------------------------------------------------------------
-            # Create Gemini client.
-            #
-            # gemini_webapi itself will check its persistent cache before
-            # falling back to the credentials supplied here.
-            # ------------------------------------------------------------
             new_client = GeminiClient(
                 secure_1psid,
                 secure_1psidts,
@@ -117,41 +98,43 @@ class GeminiChatClient:
             try:
                 await new_client.init(
                     timeout=self._settings.GEMINI_CHAT_TIMEOUT_SECONDS,
-
-                    # We want this backend to stay alive.
                     auto_close=False,
-
-                    # CRITICAL:
-                    # Keep cookie/token rotation enabled.
                     auto_refresh=True,
-
-                    # Refresh considerably before the session gets stale.
-                    #
-                    # gemini_webapi adds a small random jitter and enforces
-                    # a minimum of 60 seconds.
                     refresh_interval=300,
-
-                    # Stream watchdog.
                     watchdog_timeout=120,
-
                     verbose=False,
                 )
 
+                # gemini_webapi can log "initialized successfully" even
+                # when its later user-status RPC has marked the session
+                # UNAUTHENTICATED. Never expose such a client to VTO.
+                status = getattr(new_client.account_status, "name", None)
+
+                if status != "AVAILABLE":
+                    raise GeminiChatAuthenticationError(
+                        "Gemini Chat session is not authenticated. "
+                        f"Account status: {status or 'UNKNOWN'}. "
+                        "gemini_webapi did not establish an authenticated "
+                        "session from the configured credentials/cache."
+                    )
+
+            except GeminiChatAuthenticationError:
+                await self._safe_close(new_client)
+                raise
+
             except AuthError as error:
-                await new_client.close()
+                await self._safe_close(new_client)
 
                 raise GeminiChatAuthenticationError(
                     "Gemini Chat authentication failed. "
-                    "The persistent Gemini session and bootstrap cookies "
-                    "were rejected. Re-export the browser cookies once."
+                    "The configured Gemini session was rejected."
                 ) from error
 
             except Exception:
-                await new_client.close()
+                await self._safe_close(new_client)
                 raise
 
             self._client = new_client
-
             return new_client
 
     async def generate_try_on(
@@ -161,9 +144,7 @@ class GeminiChatClient:
         garment_paths: list[Path],
         prompt: str,
     ) -> bytes:
-        """
-        Generate a Virtual Try-On image through Gemini Chat.
-        """
+        """Generate a Virtual Try-On image through Gemini Chat."""
 
         client = await self._get_client()
 
@@ -179,17 +160,11 @@ class GeminiChatClient:
                 )
 
             except AuthError as error:
-                # The authenticated session is no longer usable.
-                #
-                # Do NOT delete the persistent cache here.
-                # gemini_webapi owns the cache and may already have rotated
-                # the session credentials.
+                # The live session was rejected during generation.
+                # Let gemini_webapi remain the owner of its persistent cache.
                 self._client = None
 
-                try:
-                    await client.close()
-                except Exception:
-                    pass
+                await self._safe_close(client)
 
                 raise GeminiChatAuthenticationError(
                     "Gemini Chat authentication expired or was rejected."
@@ -200,8 +175,6 @@ class GeminiChatClient:
                     "Gemini Chat completed without returning an image."
                 )
 
-            # Prefer GeneratedImage because it supports the full-size save
-            # path used by the existing VTO implementation.
             image = next(
                 (
                     candidate
@@ -214,7 +187,6 @@ class GeminiChatClient:
             with tempfile.TemporaryDirectory(
                 prefix="lockmylook-gemini-chat-"
             ) as temp_dir:
-
                 if isinstance(image, GeneratedImage):
                     saved_path = await image.save(
                         path=temp_dir,
@@ -239,22 +211,25 @@ class GeminiChatClient:
             return output
 
     async def close(self) -> None:
-        """
-        Close the live Gemini session.
-
-        gemini_webapi saves the persistent cookie state when closing.
-        """
+        """Close the live Gemini session."""
 
         client = self._client
         self._client = None
 
         if client is not None:
+            await self._safe_close(client)
+
+    @staticmethod
+    async def _safe_close(client: GeminiClient) -> None:
+        """Close a Gemini client without masking the original exception."""
+
+        try:
             await client.close()
+        except Exception:
+            pass
 
     def _resolve_cookie_path(self) -> Path:
-        """
-        Resolve the browser-exported bootstrap cookie JSON.
-        """
+        """Resolve the browser-exported bootstrap cookie JSON."""
 
         raw = self._settings.GEMINI_CHAT_COOKIE_JSON.strip()
 
@@ -278,9 +253,7 @@ class GeminiChatClient:
         return path
 
     def _resolve_cache_dir(self) -> Path:
-        """
-        Resolve the persistent gemini_webapi cookie cache directory.
-        """
+        """Resolve the persistent gemini_webapi cookie cache directory."""
 
         raw = self._settings.GEMINI_CHAT_COOKIE_CACHE_DIR.strip()
 
@@ -298,7 +271,7 @@ class GeminiChatClient:
         """
         Read the minimum bootstrap credentials required by GeminiClient.
 
-        Supports both:
+        Supports:
 
             [
                 {"name": "...", "value": "..."},
@@ -312,15 +285,12 @@ class GeminiChatClient:
                     ...
                 ]
             }
-
-        formats.
         """
 
         try:
             data = json.loads(
                 path.read_text(encoding="utf-8")
             )
-
         except (OSError, json.JSONDecodeError) as error:
             raise GeminiChatConfigurationError(
                 f"Could not read Gemini Chat cookie JSON: {path}"
