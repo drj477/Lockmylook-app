@@ -243,32 +243,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Align(alignment: Alignment.centerLeft, child: Text('Default Try-On Model', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
-              const SizedBox(height: 6),
-              const Align(alignment: Alignment.centerLeft, child: Text('Choose which model opens by default.', style: TextStyle(color: LockMyLookUi.muted))),
-              const SizedBox(height: 16),
-              for (final model in [VirtualTryOnModel.dTryon, VirtualTryOnModel.gemini])
-                RadioListTile<VirtualTryOnModel>(
-                  value: model,
-                  groupValue: _defaultModel,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setSheetState(() => _defaultModel = value);
-                    setState(() => _defaultModel = value);
-                  },
-                  title: Text(_modelLabel(model), style: const TextStyle(fontWeight: FontWeight.w800)),
-                  subtitle: Text(model == VirtualTryOnModel.dTryon ? 'From 5 credits' : '18 credits · Gemini 3.1 · 1K'),
-                  activeColor: LockMyLookUi.coral,
-                ),
-            ],
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Default Try-On Model',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Choose which model opens by default.',
+                style: TextStyle(color: LockMyLookUi.muted),
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final model in [
+              VirtualTryOnModel.dTryon,
+              VirtualTryOnModel.gemini,
+            ])
+              _modelOption(model),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modelOption(VirtualTryOnModel model) {
+    final selected = _defaultModel == model;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: selected ? LockMyLookUi.coralSoft : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? LockMyLookUi.coral : Colors.black.withAlpha(10),
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: ListTile(
+        onTap: () {
+          setState(() => _defaultModel = model);
+          Navigator.pop(context);
+        },
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        leading: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: selected ? LockMyLookUi.coral : const Color(0xFFF3F4F6),
+          ),
+          child: Icon(
+            selected ? Icons.check_rounded : Icons.radio_button_unchecked_rounded,
+            color: selected ? Colors.white : LockMyLookUi.muted,
+            size: 19,
           ),
         ),
+        title: Text(
+          _modelLabel(model),
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          model == VirtualTryOnModel.dTryon
+              ? 'From 5 credits'
+              : '18 credits · Gemini 3.1 · 1K',
+        ),
+        trailing: selected
+            ? const Icon(Icons.check_circle_rounded, color: LockMyLookUi.coral)
+            : null,
       ),
     );
   }
@@ -294,7 +344,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _creditRow('Gemini 3.1 Flash Image · 1K', '18 credits'),
             _creditRow('Cached result', '1 credit'),
             const SizedBox(height: 16),
-            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => _showInfo('Buy Credits', 'Payment packages will be connected when billing is enabled.'), icon: const Icon(Icons.add_rounded), label: const Text('Buy Credits'))),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _showInfo(
+                  'Buy Credits',
+                  'Payment packages will be connected when billing is enabled.',
+                ),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Buy Credits'),
+              ),
+            ),
           ],
         ),
       ),
@@ -303,17 +363,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _creditRow(String name, String cost) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(children: [Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700))), Text(cost, style: const TextStyle(fontWeight: FontWeight.w900, color: LockMyLookUi.coral))]),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            Text(
+              cost,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: LockMyLookUi.coral,
+              ),
+            ),
+          ],
+        ),
       );
 
-  void _showPrivacy() => _showInfo('Privacy & Data', 'Your wardrobe, profiles and generated looks are stored under your account. Data controls will be connected to the account API.');
+  void _showPrivacy() => _showInfo(
+        'Privacy & Data',
+        'Your wardrobe, profiles and generated looks are stored under your account. Data controls will be connected to the account API.',
+      );
 
   void _showSignOut() => showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Sign out?'),
           content: const Text('You will need to sign in again on this device.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Sign Out'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Sign Out'),
+            ),
+          ],
         ),
       );
 
@@ -321,8 +406,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Delete Account?'),
-          content: const Text('This will permanently delete your account, profiles, wardrobe, generated looks and account data. This action cannot be undone.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), TextButton(onPressed: () => Navigator.pop(context), child: const Text('Delete Permanently', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800)))],
+          content: const Text(
+            'This will permanently delete your account, profiles, wardrobe, generated looks and account data. This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Delete Permanently',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
         ),
       );
 
@@ -331,7 +430,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context) => AlertDialog(
           title: Text(title),
           content: Text(message),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
         ),
       );
 }
