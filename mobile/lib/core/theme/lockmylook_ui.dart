@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:mobile/app/routes.dart';
+
 abstract final class LockMyLookUi {
   const LockMyLookUi._();
 
@@ -126,6 +128,7 @@ class LmlBottomNav extends StatelessWidget {
     (Icons.checkroom_outlined, Icons.checkroom_rounded, 'Wardrobe'),
     (Icons.auto_awesome_outlined, Icons.auto_awesome, 'Style AI'),
     (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+    (Icons.settings_outlined, Icons.settings_rounded, 'Settings'),
   ];
 
   @override
@@ -156,7 +159,13 @@ class LmlBottomNav extends StatelessWidget {
                 selected: selected,
                 label: item.$3,
                 child: InkWell(
-                  onTap: () => onTap(index),
+                  onTap: () {
+                    if (index == 4) {
+                      context.push(AppRoutes.settings);
+                    } else {
+                      onTap(index);
+                    }
+                  },
                   borderRadius: BorderRadius.circular(18),
                   splashColor: LockMyLookUi.coralSoft,
                   highlightColor: LockMyLookUi.coralSoft.withValues(alpha: 0.35),
