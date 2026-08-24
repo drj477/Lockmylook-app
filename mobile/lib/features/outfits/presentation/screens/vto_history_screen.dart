@@ -26,17 +26,28 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
   }
 
   Future<void> _load() async {
-    await ref.read(profileControllerProvider.notifier).loadProfiles();
-    if (!mounted) return;
-    final profiles = ref.read(profileControllerProvider).profiles;
+    // Use the already-selected profile first. Do not call loadProfiles()
+    // unconditionally here: the history screen is profile-scoped and a
+    // network refresh must never silently switch the active family profile.
+    var profiles = ref.read(profileControllerProvider).profiles;
+
     if (profiles.isEmpty) {
-      setState(() => _loading = false);
+      await ref.read(profileControllerProvider.notifier).loadProfiles();
+      if (!mounted) return;
+      profiles = ref.read(profileControllerProvider).profiles;
+    }
+
+    if (profiles.isEmpty) {
+      if (mounted) setState(() => _loading = false);
       return;
     }
-    _profileId = profiles.first.id;
+
+    final profileId = profiles.first.id;
+    _profileId = profileId;
+
     try {
       final results = await ref.read(virtualTryOnRepositoryProvider).history(
-            profileId: _profileId!,
+            profileId: profileId,
           );
       if (mounted) {
         setState(() {
@@ -55,7 +66,7 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
   Future<void> _deleteOne(VirtualTryOnResult result) async {
     final confirmed = await _confirm(
       'Delete this generated look?',
-      'This deletes the image, its VTO result and its associated cache key. Your wardrobe and profile stay untouched.',
+      'This deletes the image and its shared cache entry. If you generate the same person and garments with another model later, it will generate again.',
     );
     if (!confirmed || _profileId == null) return;
 
@@ -80,8 +91,8 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
   Future<void> _clearAll() async {
     if (_results.isEmpty || _profileId == null) return;
     final confirmed = await _confirm(
-      'Clear all saved looks?',
-      'Every generated VTO result and its cache key for the current profile will be deleted. Wardrobe and profile images are not affected.',
+      'Clear all cached looks?',
+      'Every generated VTO result and its shared cache entry for the current profile will be deleted. Wardrobe and profile images are not affected.',
     );
     if (!confirmed) return;
 
@@ -129,13 +140,13 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
       backgroundColor: LockMyLookUi.background,
       appBar: AppBar(
         title: const Text(
-          'VTO History & Saved Looks',
+          'VTO History & Cache',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         actions: [
           if (_results.isNotEmpty)
             IconButton(
-              tooltip: 'Clear all',
+              tooltip: 'Clear all cache',
               onPressed: _deleting ? null : _clearAll,
               icon: const Icon(Icons.delete_sweep_outlined),
             ),
@@ -160,7 +171,7 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
 
   Widget _resultCard(VirtualTryOnResult result) {
     return Container(
-      height: 128,
+      height: 140,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -187,34 +198,52 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _modelLabel(result.model),
-                    style: const TextStyle(
-                      color: LockMyLookUi.coral,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .7,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: LockMyLookUi.coralSoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'SHARED CACHE',
+                      style: TextStyle(
+                        color: LockMyLookUi.coral,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .7,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
-                    '${result.itemIds.length} garment${result.itemIds.length == 1 ? '' : 's'}',
+                    'Generated with ${_modelLabel(result.model)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       color: LockMyLookUi.ink,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${result.itemIds.length} garment${result.itemIds.length == 1 ? '' : 's'} · reusable across models',
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      color: LockMyLookUi.muted,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _date(result.createdAt),
                     style: const TextStyle(
-                      fontSize: 10,
+                      fontSize: 9.5,
                       color: LockMyLookUi.muted,
                     ),
                   ),
                   const Spacer(),
                   SizedBox(
-                    height: 30,
+                    height: 28,
                     child: TextButton.icon(
                       onPressed: _deleting ? null : () => _deleteOne(result),
                       style: TextButton.styleFrom(
@@ -223,11 +252,8 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         alignment: Alignment.centerLeft,
                       ),
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        size: 17,
-                      ),
-                      label: const Text('Delete'),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 17),
+                      label: const Text('Delete cache'),
                     ),
                   ),
                 ],
@@ -260,12 +286,12 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'No generated looks yet',
+                'No cached looks yet',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Your generated try-on results will appear here. You can delete individual results later without touching your wardrobe.',
+                'Your generated try-on images appear here as shared cache entries. One generated image can be reused by every VTO model until you delete it.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: LockMyLookUi.muted, height: 1.4),
               ),
@@ -274,11 +300,12 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
         ),
       );
 
-  String _modelLabel(VirtualTryOnModel model) => switch (model) {
-        VirtualTryOnModel.dTryon => 'QUICK TRY-ON · D-TRYON',
-        VirtualTryOnModel.gemini => 'PREMIUM TRY-ON · GEMINI',
-        VirtualTryOnModel.geminiChat => 'GEMINI CHAT',
-        VirtualTryOnModel.replicate => 'REPLICATE',
+  String _modelLabel(String model) => switch (model) {
+        'd_tryon' => 'D-Tryon',
+        'gemini' => 'Gemini',
+        'gemini_chat' => 'Gemini Chat',
+        'replicate' => 'Replicate',
+        _ => model,
       };
 
   String _date(DateTime value) {
