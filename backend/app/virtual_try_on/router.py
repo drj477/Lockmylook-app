@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
+from app.auth.dependencies import get_current_account
+from app.auth.model import Account
 from app.database.session import get_session
 from app.profiles.dependencies import get_owned_profile
 from app.profiles.model import Profile
@@ -44,6 +46,7 @@ def _to_response(result: VirtualTryOnResult, base_url: str) -> dict:
 async def generate_try_on(
     payload: VirtualTryOnRequest,
     request: Request,
+    current_account: Account = Depends(get_current_account),
     owned_profile: Profile = Depends(get_owned_profile),
     session: Session = Depends(get_session),
 ):
@@ -68,6 +71,7 @@ async def generate_try_on(
         session=session,
         profile=owned_profile,
         items=selected_items,
+        account_id=current_account.id,
         model=payload.model,
     )
 
@@ -114,8 +118,6 @@ def delete_all_try_on_cache(
             except ValueError:
                 pass
 
-        # cache_key lives on the result row, so deleting the row removes
-        # the corresponding cache entry as well.
         session.delete(result)
 
     session.commit()
@@ -148,8 +150,6 @@ def delete_try_on_result(
         except ValueError:
             pass
 
-    # cache_key is stored on this same row; deleting the result deletes the
-    # selective cache key together with the generated image.
     session.delete(result)
     session.commit()
 
