@@ -213,18 +213,7 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Generated with ${_modelLabel(result.model)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: LockMyLookUi.ink,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${result.itemIds.length} garment${result.itemIds.length == 1 ? '' : 's'} · reusable across models',
+                    '${result.itemIds.length} garment${result.itemIds.length == 1 ? '' : 's'}',
                     style: const TextStyle(
                       fontSize: 9.5,
                       color: LockMyLookUi.muted,
