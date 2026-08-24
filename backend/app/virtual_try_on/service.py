@@ -13,10 +13,7 @@ from sqlmodel import Session, select
 
 from app.core.config import get_settings
 from app.credits.model import CreditTransactionType
-from app.credits.service import (
-    generation_cost_units,
-    refund_generation,
-)
+from app.credits.service import debit, generation_cost_units, refund_generation
 from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
@@ -122,10 +119,6 @@ class VirtualTryOnService:
                 cached_result.model,
                 cache_key,
             )
-            # Cache hits cost 0.5 credits regardless of which model originally
-            # generated the shared result.
-            from app.credits.service import debit
-
             debit(
                 session,
                 account_id=account_id,
@@ -150,8 +143,6 @@ class VirtualTryOnService:
 
         # Reserve the generation cost before calling an external provider. If
         # generation fails, the exact reservation is refunded below.
-        from app.credits.service import debit
-
         debit(
             session,
             account_id=account_id,
