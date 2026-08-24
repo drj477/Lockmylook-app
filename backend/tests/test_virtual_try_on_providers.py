@@ -10,7 +10,9 @@ from app.virtual_try_on.providers import _read_provider_output
 
 class _Settings:
     GEMINI_CHAT_COOKIE_JSON = ""
-    GEMINI_CHAT_COOKIE_CACHE_DIR = "secrets/gemini_webapi"
+    # Use an isolated, nonexistent cache directory so this test verifies the
+    # bootstrap-cookie requirement without depending on developer-local caches.
+    GEMINI_CHAT_COOKIE_CACHE_DIR = "tests/.missing-gemini-cache"
     GEMINI_CHAT_TIMEOUT_SECONDS = 450
 
 
