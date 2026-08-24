@@ -13,6 +13,7 @@ from app.core.exceptions import register_exception_handlers
 from app.core.health import router as health_router
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIDMiddleware
+from app.credits.router import router as credits_router
 from app.database import session as db_session
 from app.outfits.router import router as outfits_router
 from app.profiles.router import router as profiles_router
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router, prefix=settings.API_V1_PREFIX)
     app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(credits_router, prefix=settings.API_V1_PREFIX)
     app.include_router(profiles_router, prefix=settings.API_V1_PREFIX)
     app.include_router(
         wardrobe_category_router,
