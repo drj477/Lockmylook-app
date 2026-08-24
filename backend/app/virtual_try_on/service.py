@@ -12,6 +12,11 @@ from replicate.exceptions import ModelError
 from sqlmodel import Session, select
 
 from app.core.config import get_settings
+from app.credits.model import CreditTransactionType
+from app.credits.service import (
+    generation_cost_units,
+    refund_generation,
+)
 from app.profiles.image_service import profile_image_service
 from app.profiles.model import Profile
 from app.wardrobe.model import WardrobeItem
@@ -44,6 +49,7 @@ class VirtualTryOnService:
         session: Session,
         profile: Profile,
         items: list[WardrobeItem],
+        account_id: UUID,
         model: VirtualTryOnModel = VirtualTryOnModel.REPLICATE,
     ) -> VirtualTryOnResult:
         settings = get_settings()
@@ -91,11 +97,8 @@ class VirtualTryOnService:
             garment_paths.append(self._resolve_local_path(image.image_url))
             garment_names.append(item.name)
 
-        # IMPORTANT: the cache represents the visual request, not the provider.
-        # Therefore D-Tryon, Gemini, Gemini Chat, and Replicate all share the
-        # same cache entry for the same person + garments. Once one provider
-        # generates the image, subsequent model selections reuse it and cost
-        # only the cache-hit credit handled by the billing layer.
+        # The cache represents the visual request, not the provider. All VTO
+        # models therefore reuse the same generated image for the same inputs.
         cache_key = build_vto_cache_key(
             profile_id=profile.id,
             person_path=person_path,
@@ -119,6 +122,19 @@ class VirtualTryOnService:
                 cached_result.model,
                 cache_key,
             )
+            # Cache hits cost 0.5 credits regardless of which model originally
+            # generated the shared result.
+            from app.credits.service import debit
+
+            debit(
+                session,
+                account_id=account_id,
+                units=generation_cost_units(model.value, cache_hit=True),
+                transaction_type=CreditTransactionType.CACHE_HIT,
+                reason="Virtual try-on cache hit",
+                provider=model.value,
+                vto_result_id=cached_result.id,
+            )
             return cached_result
 
         logger.info(
@@ -130,13 +146,49 @@ class VirtualTryOnService:
 
         prompt = self._build_prompt(garment_names)
         provider = self._provider(model, settings)
+        generation_units = generation_cost_units(model.value, cache_hit=False)
+
+        # Reserve the generation cost before calling an external provider. If
+        # generation fails, the exact reservation is refunded below.
+        from app.credits.service import debit
+
+        debit(
+            session,
+            account_id=account_id,
+            units=generation_units,
+            transaction_type=CreditTransactionType.GENERATION,
+            reason="Virtual try-on generation",
+            provider=model.value,
+        )
+        charged_units = generation_units
+
+        def refund_if_charged() -> None:
+            nonlocal charged_units
+            if charged_units <= 0:
+                return
+            try:
+                refund_generation(
+                    session,
+                    account_id=account_id,
+                    units=charged_units,
+                    provider=model.value,
+                )
+                charged_units = 0
+            except Exception:
+                logger.exception(
+                    "Failed to refund VTO credits: account={} model={} units={}",
+                    account_id,
+                    model.value,
+                    charged_units,
+                )
 
         logger.info(
-            "Starting Virtual Try-On: profile={} garments={} model={} person_asset={}",
+            "Starting Virtual Try-On: profile={} garments={} model={} person_asset={} credit_units={}",
             profile.id,
             garment_names,
             model.value,
             person_path,
+            generation_units,
         )
 
         try:
@@ -147,6 +199,7 @@ class VirtualTryOnService:
                 prompt=prompt,
             )
         except ModelError as error:
+            refund_if_charged()
             prediction = getattr(error, "prediction", None)
             prediction_id = getattr(prediction, "id", None)
             prediction_status = getattr(prediction, "status", None)
@@ -170,11 +223,13 @@ class VirtualTryOnService:
                 detail=f"Virtual Try-On provider error: {detail}",
             ) from error
         except GeminiChatConfigurationError as error:
+            refund_if_charged()
             raise HTTPException(
                 status_code=503,
                 detail="Gemini Chat is not configured. Set GEMINI_CHAT_COOKIE_JSON on the backend.",
             ) from error
         except GeminiChatAuthenticationError as error:
+            refund_if_charged()
             raise HTTPException(
                 status_code=503,
                 detail=(
@@ -183,6 +238,7 @@ class VirtualTryOnService:
                 ),
             ) from error
         except RuntimeError as error:
+            refund_if_charged()
             detail = str(error)
             if "GEMINI_API_KEY" in detail:
                 raise HTTPException(
@@ -195,10 +251,7 @@ class VirtualTryOnService:
                     detail="Replicate Virtual Try-On is not configured. Add REPLICATE_API_TOKEN to backend/.env.",
                 ) from error
             if "PRUNA_API_KEY" in detail or "PRUNA_PUBLIC_BASE_URL" in detail:
-                raise HTTPException(
-                    status_code=503,
-                    detail=detail,
-                ) from error
+                raise HTTPException(status_code=503, detail=detail) from error
             logger.exception(
                 "Virtual Try-On provider failed: profile={} model={}",
                 profile.id,
@@ -209,8 +262,10 @@ class VirtualTryOnService:
                 detail=f"Virtual Try-On provider error: {detail}",
             ) from error
         except HTTPException:
+            refund_if_charged()
             raise
         except Exception as error:
+            refund_if_charged()
             logger.exception(
                 "Unexpected Virtual Try-On failure: profile={} model={}",
                 profile.id,
@@ -222,32 +277,44 @@ class VirtualTryOnService:
             ) from error
 
         if not output_bytes:
+            refund_if_charged()
             raise HTTPException(
                 status_code=502,
                 detail="Virtual Try-On completed without returning an image.",
             )
 
-        output_bytes = self._normalize_output(output_bytes)
+        try:
+            output_bytes = self._normalize_output(output_bytes)
 
-        output_dir = Path("uploads/tryon")
-        output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = Path("uploads/tryon")
+            output_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{profile.id}-{uuid4()}.webp"
-        output_path = output_dir / filename
-        output_path.write_bytes(output_bytes)
+            filename = f"{profile.id}-{uuid4()}.webp"
+            output_path = output_dir / filename
+            output_path.write_bytes(output_bytes)
 
-        result = VirtualTryOnResult(
-            profile_id=profile.id,
-            image_url=f"/uploads/tryon/{filename}",
-            item_ids_json=json.dumps([str(item.id) for item in items]),
-            # Store the provider that actually generated the shared image.
-            # A later request for another model will return this same result.
-            model=model.value,
-            cache_key=cache_key,
-        )
-        session.add(result)
-        session.commit()
-        session.refresh(result)
+            result = VirtualTryOnResult(
+                profile_id=profile.id,
+                image_url=f"/uploads/tryon/{filename}",
+                item_ids_json=json.dumps([str(item.id) for item in items]),
+                model=model.value,
+                cache_key=cache_key,
+            )
+            session.add(result)
+            session.commit()
+            session.refresh(result)
+            charged_units = 0
+        except Exception as error:
+            refund_if_charged()
+            logger.exception(
+                "Virtual Try-On result persistence failed: profile={} model={}",
+                profile.id,
+                model.value,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=f"Virtual Try-On failed while saving the generated image: {error}",
+            ) from error
 
         logger.info(
             "Virtual Try-On completed: profile={} result={} generated_model={} path={} hash={}",
