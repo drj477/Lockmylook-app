@@ -141,8 +141,6 @@ class VirtualTryOnService:
         provider = self._provider(model, settings)
         generation_units = generation_cost_units(model.value, cache_hit=False)
 
-        # Reserve the generation cost before calling an external provider. If
-        # generation fails, the exact reservation is refunded below.
         debit(
             session,
             account_id=account_id,
@@ -196,7 +194,6 @@ class VirtualTryOnService:
             prediction_status = getattr(prediction, "status", None)
             prediction_error = getattr(prediction, "error", None)
             prediction_logs = getattr(prediction, "logs", None)
-
             logger.error(
                 "Replicate VTO failed: prediction_id={} status={} error={} logs={}",
                 prediction_id,
@@ -204,11 +201,9 @@ class VirtualTryOnService:
                 prediction_error,
                 prediction_logs,
             )
-
             detail = prediction_error or str(error)
             if prediction_id:
                 detail = f"{detail} (prediction: {prediction_id})"
-
             raise HTTPException(
                 status_code=502,
                 detail=f"Virtual Try-On provider error: {detail}",
@@ -276,10 +271,8 @@ class VirtualTryOnService:
 
         try:
             output_bytes = self._normalize_output(output_bytes)
-
             output_dir = Path("uploads/tryon")
             output_dir.mkdir(parents=True, exist_ok=True)
-
             filename = f"{profile.id}-{uuid4()}.webp"
             output_path = output_dir / filename
             output_path.write_bytes(output_bytes)
@@ -315,32 +308,69 @@ class VirtualTryOnService:
             output_path,
             cache_key,
         )
-
         return result
 
     def _provider(self, model: VirtualTryOnModel, settings) -> VirtualTryOnProvider:
         if model is VirtualTryOnModel.REPLICATE:
             return ReplicateVirtualTryOnProvider(settings)
-
         if model is VirtualTryOnModel.GEMINI:
             return GeminiVirtualTryOnProvider(settings)
-
         if model is VirtualTryOnModel.GEMINI_CHAT:
             if self._gemini_chat_provider is None:
                 self._gemini_chat_provider = GeminiChatVirtualTryOnProvider(settings)
             return self._gemini_chat_provider
-
         if model is VirtualTryOnModel.D_TRYON:
             return DTryOnVirtualTryOnProvider(settings)
-
         raise HTTPException(status_code=422, detail=f"Unsupported Virtual Try-On model: {model}")
 
     @staticmethod
     def _resolve_local_path(value: str) -> Path:
-        path = Path(value)
-        if not path.is_absolute():
-            path = Path.cwd() / path
-        return path.resolve()
+        """Resolve a local upload path and reject unsafe/nonexistent references."""
+        if not value or "://" in value:
+            raise HTTPException(status_code=422, detail="Invalid local image reference.")
+
+        raw_path = Path(value)
+        if raw_path.is_absolute():
+            path = raw_path.resolve()
+        else:
+            path = (Path.cwd() / raw_path).resolve()
+
+        uploads_root = (Path.cwd() / "uploads").resolve()
+        try:
+            path.relative_to(uploads_root)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=422,
+                detail="Image reference must point to a local upload.",
+            ) from error
+
+        if not path.exists() or not path.is_file():
+            raise HTTPException(
+                status_code=422,
+                detail="Referenced image file was not found.",
+            )
+
+        return path
+
+    @staticmethod
+    def _read_output(output: object) -> bytes:
+        """Read provider output from bytes, a file-like object, or one-item list."""
+        if isinstance(output, (bytes, bytearray)):
+            return bytes(output)
+
+        if isinstance(output, list):
+            if len(output) != 1:
+                raise ValueError("Expected exactly one provider output.")
+            return VirtualTryOnService._read_output(output[0])
+
+        reader = getattr(output, "read", None)
+        if callable(reader):
+            value = reader()
+            if not isinstance(value, (bytes, bytearray)):
+                raise ValueError("Provider output read() must return bytes.")
+            return bytes(value)
+
+        raise ValueError("Unsupported provider output type.")
 
     @staticmethod
     def _normalize_output(output_bytes: bytes) -> bytes:
@@ -353,47 +383,40 @@ class VirtualTryOnService:
 
     @staticmethod
     def _build_prompt(garment_names: list[str]) -> str:
-        garments = ", ".join(garment_names)
-        return (
-            "Create a realistic virtual try-on image. Preserve the person's identity, "
-            "body proportions, pose, hair, skin tone, and overall appearance. Replace "
-            f"the clothing with the selected wardrobe items: {garments}. "
-            "Fit the garments naturally and accurately. Keep the full person visible. "
-            "Do not add accessories or garments that were not selected."
+        garment_lines = "\n".join(
+            f"- Reference garment image {index + 2}: {name}"
+            for index, name in enumerate(garment_names)
         )
+        return f"""Create a photorealistic virtual try-on photograph.
 
-    def to_response(self, result: VirtualTryOnResult, base_url: str) -> dict:
-        image_url = result.image_url
-        if image_url.startswith("/"):
-            image_url = f"{base_url.rstrip('/')}{image_url}"
-        return {
-            "id": result.id,
-            "profile_id": result.profile_id,
-            "image_url": image_url,
-            "item_ids": json.loads(result.item_ids_json),
-            "model": result.model,
-            "created_at": result.created_at,
-            "saved": result.saved,
-        }
+REFERENCE IMAGE 1 is the PERSON. It is authoritative for identity, face, hair,
+body proportions, pose, hands, skin, lower body and the original scene.
 
-    def set_saved(
-        self,
-        session: Session,
-        profile: Profile,
-        result_id: UUID,
-        saved: bool,
-    ) -> dict:
-        result = session.exec(
-            select(VirtualTryOnResult).where(
-                VirtualTryOnResult.id == result_id,
-                VirtualTryOnResult.profile_id == profile.id,
-            )
-        ).first()
-        if result is None:
-            raise HTTPException(status_code=404, detail="Virtual Try-On result not found.")
+The remaining reference images are the GARMENTS. Transfer those exact garments
+onto the person. Each garment reference is authoritative for its visual design.
 
-        result.saved = saved
-        session.add(result)
-        session.commit()
-        session.refresh(result)
-        return {"id": result.id, "saved": result.saved}
+{garment_lines}
+
+STRICT REQUIREMENTS:
+
+- Preserve the person's identity exactly. Do not regenerate or reinterpret the face.
+- Preserve facial structure, hair, skin tone, body proportions and age appearance.
+- Preserve the original pose, hands, arms, legs and feet.
+- Preserve the original camera perspective and composition.
+- Preserve the original background unless a natural adjustment is required for lighting.
+- Change clothing only.
+- Use the garment references as exact visual references, not inspiration.
+- Preserve exact garment color, pattern, print, material, texture, construction and proportions.
+- Preserve collars, necklines, buttons, zippers, pockets, seams, cuffs and hems.
+- Preserve the complete sleeve length and sleeve construction. Never shorten, remove or crop sleeves.
+- Fit each garment naturally to the person's actual body and pose.
+- Create realistic fabric folds, tension, occlusion and shadows caused by the pose.
+- Keep hands naturally in front of or beside the garments when appropriate.
+- Do not add accessories or change unrelated clothing.
+- Do not redesign, simplify or invent garment details.
+- Do not change the person's gender, hairstyle, facial expression or body shape.
+- Do not add accessories or garments that were not selected.
+- The result must look like a real photograph of the same person wearing the supplied garments.
+- Keep the output image aspect ratio 3:4. The ratio is Width:Height.
+
+Output only the finished image."""
