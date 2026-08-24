@@ -26,9 +26,6 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
   }
 
   Future<void> _load() async {
-    // Use the already-selected profile first. Do not call loadProfiles()
-    // unconditionally here: the history screen is profile-scoped and a
-    // network refresh must never silently switch the active family profile.
     var profiles = ref.read(profileControllerProvider).profiles;
 
     if (profiles.isEmpty) {
@@ -300,12 +297,11 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
         ),
       );
 
-  String _modelLabel(String model) => switch (model) {
-        'd_tryon' => 'D-Tryon',
-        'gemini' => 'Gemini',
-        'gemini_chat' => 'Gemini Chat',
-        'replicate' => 'Replicate',
-        _ => model,
+  String _modelLabel(VirtualTryOnModel model) => switch (model) {
+        VirtualTryOnModel.dTryon => 'D-Tryon',
+        VirtualTryOnModel.gemini => 'Gemini',
+        VirtualTryOnModel.geminiChat => 'Gemini Chat',
+        VirtualTryOnModel.replicate => 'Replicate',
       };
 
   String _date(DateTime value) {
