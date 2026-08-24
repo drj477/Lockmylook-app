@@ -11,9 +11,14 @@ def build_vto_cache_key(
     person_path: Path,
     garment_paths: list[Path],
     item_ids: list[UUID],
-    model: str,
 ) -> str:
-    """Build a deterministic cache key from the exact VTO inputs.
+    """Build a deterministic cache key for the visual VTO inputs.
+
+    The model/provider is intentionally NOT part of this key.
+    A person + exact garment set should produce one reusable VTO image,
+    regardless of which provider generated it first. This lets a later
+    request for another model reuse the existing image instead of spending
+    another generation credit.
 
     File contents are included so replacing an uploaded image invalidates the
     old result even when the database item/profile IDs remain unchanged.
@@ -37,12 +42,11 @@ def build_vto_cache_key(
                 hasher.update(chunk)
 
     add_text("profile", str(profile_id))
-    add_text("model", model)
+    add_text("person", str(person_path.name))
+    add_file("person_file", person_path)
 
     for item_id in item_ids:
         add_text("item", str(item_id))
-
-    add_file("person", person_path)
 
     for index, garment_path in enumerate(garment_paths):
         add_text("garment_index", str(index))
