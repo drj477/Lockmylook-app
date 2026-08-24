@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from io import BytesIO
 from pathlib import Path
@@ -89,34 +91,38 @@ class VirtualTryOnService:
             garment_paths.append(self._resolve_local_path(image.image_url))
             garment_names.append(item.name)
 
+        # IMPORTANT: the cache represents the visual request, not the provider.
+        # Therefore D-Tryon, Gemini, Gemini Chat, and Replicate all share the
+        # same cache entry for the same person + garments. Once one provider
+        # generates the image, subsequent model selections reuse it and cost
+        # only the cache-hit credit handled by the billing layer.
         cache_key = build_vto_cache_key(
             profile_id=profile.id,
             person_path=person_path,
             garment_paths=garment_paths,
             item_ids=item_ids,
-            model=model.value,
         )
 
         cached_result = session.exec(
             select(VirtualTryOnResult).where(
                 VirtualTryOnResult.profile_id == profile.id,
-                VirtualTryOnResult.model == model.value,
                 VirtualTryOnResult.cache_key == cache_key,
             )
         ).first()
 
         if cached_result is not None:
             logger.info(
-                "Virtual Try-On cache hit: profile={} result={} model={} hash={}",
+                "Virtual Try-On cache hit: profile={} result={} requested_model={} generated_model={} hash={}",
                 profile.id,
                 cached_result.id,
                 model.value,
+                cached_result.model,
                 cache_key,
             )
             return cached_result
 
         logger.info(
-            "Virtual Try-On cache miss: profile={} model={} hash={}",
+            "Virtual Try-On cache miss: profile={} requested_model={} hash={}",
             profile.id,
             model.value,
             cache_key,
@@ -234,6 +240,8 @@ class VirtualTryOnService:
             profile_id=profile.id,
             image_url=f"/uploads/tryon/{filename}",
             item_ids_json=json.dumps([str(item.id) for item in items]),
+            # Store the provider that actually generated the shared image.
+            # A later request for another model will return this same result.
             model=model.value,
             cache_key=cache_key,
         )
@@ -242,7 +250,7 @@ class VirtualTryOnService:
         session.refresh(result)
 
         logger.info(
-            "Virtual Try-On completed: profile={} result={} model={} path={} hash={}",
+            "Virtual Try-On completed: profile={} result={} generated_model={} path={} hash={}",
             profile.id,
             result.id,
             model.value,
@@ -269,145 +277,46 @@ class VirtualTryOnService:
 
         raise HTTPException(status_code=422, detail=f"Unsupported Virtual Try-On model: {model}")
 
-    async def close(self) -> None:
-        if self._gemini_chat_provider is not None:
-            await self._gemini_chat_provider.close()
-            self._gemini_chat_provider = None
-
     @staticmethod
-    def _build_prompt(garment_names: list[str]) -> str:
-        garment_list = "\n".join(
-            f"- Reference garment image {index + 2}: {name}"
-            for index, name in enumerate(garment_names)
-        )
-
-        return f"""
-Create a photorealistic virtual try-on photograph.
-
-REFERENCE IMAGE 1 is the PERSON. It is authoritative for identity, face, hair,
-body proportions, pose, hands, skin, lower body and the original scene.
-
-The remaining reference images are the GARMENTS. Transfer those exact garments
-onto the person. Each garment reference is authoritative for its visual design.
-
-{garment_list}
-
-STRICT REQUIREMENTS:
-- Preserve the person's identity exactly. Do not regenerate or reinterpret the face keep the face as it is.
-- Preserve facial structure, hair, skin tone, body proportions and age appearance.
-- Preserve the original pose, hands, arms, legs,face and feet.
-- Preserve the original camera perspective and composition.
-- Preserve the original background unless a natural adjustment is required for lighting.
-- Change clothing only.
-- Use the garment references as exact visual references, not inspiration.
-- Preserve exact garment color, pattern, print, material, texture, construction and proportions.
-- Preserve collars, necklines, buttons, zippers, pockets, seams, cuffs and hems.
-- Preserve the complete sleeve length and sleeve construction. Never shorten, remove or crop sleeves.
-- Fit each garment naturally to the person's actual body and pose.
-- Create realistic fabric folds, tension, occlusion and shadows caused by the pose.
-- Keep hands naturally in front of or beside the garments when appropriate.
-- Do not add accessories or change unrelated clothing.
-- Do not redesign, simplify or invent garment details.
-- Do not change the person's gender, hairstyle, facial expression or body shape.
-- The result must look like a real photograph of the same person wearing the supplied garments.
-- Keep the output image aspect ratio 3:4  the ratio is in format Width:Height
-
-Output only the finished image.
-""".strip()
-
-    @staticmethod
-    def _resolve_local_path(value: str | None) -> Path:
-        """Resolve the path format used by persisted upload records."""
-        raw = (value or "").strip()
-        if not raw:
-            raise HTTPException(status_code=422, detail="Image path is empty.")
-
-        if raw.startswith(("http://", "https://", "data:")):
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Virtual Try-On requires locally stored profile and wardrobe images. "
-                    f"Unsupported image reference: {raw}"
-                ),
-            )
-
-        path = Path(raw)
-        if raw.startswith("/uploads/"):
-            path = Path(raw.lstrip("/"))
-
+    def _resolve_local_path(value: str) -> Path:
+        path = Path(value)
         if not path.is_absolute():
             path = Path.cwd() / path
-
-        path = path.resolve()
-        uploads_root = (Path.cwd() / "uploads").resolve()
-
-        try:
-            path.relative_to(uploads_root)
-        except ValueError as error:
-            raise HTTPException(
-                status_code=422,
-                detail="Image path is outside the application's uploads directory.",
-            ) from error
-
-        if not path.exists() or not path.is_file():
-            raise HTTPException(
-                status_code=422,
-                detail=f"Image file is unavailable: {raw}",
-            )
-
-        if path.stat().st_size == 0:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Image file is empty: {raw}",
-            )
-
-        return path
+        return path.resolve()
 
     @staticmethod
     def _normalize_output(output_bytes: bytes) -> bytes:
-        """Normalize provider output to the app's persisted WebP format."""
-        try:
-            with Image.open(BytesIO(output_bytes)) as image:
-                if image.mode not in ("RGB", "RGBA"):
-                    image = image.convert("RGB")
-                output = BytesIO()
-                image.save(output, format="WEBP", quality=95, method=6)
-                return output.getvalue()
-        except Exception as error:
-            raise RuntimeError(f"Provider returned an unreadable image: {error}") from error
+        with Image.open(BytesIO(output_bytes)) as image:
+            if image.mode not in ("RGB", "RGBA"):
+                image = image.convert("RGBA")
+            output = BytesIO()
+            image.save(output, format="WEBP", quality=95)
+            return output.getvalue()
 
     @staticmethod
-    def _read_output(output) -> bytes:
-        """Backward-compatible output normalization helper used by tests."""
-        if output is None:
-            return b""
-        if hasattr(output, "read"):
-            return output.read()
-        if isinstance(output, list | tuple):
-            if not output:
-                return b""
-            first = output[0]
-            if hasattr(first, "read"):
-                return first.read()
-            if isinstance(first, bytes | bytearray):
-                return bytes(first)
-        if isinstance(output, bytes | bytearray):
-            return bytes(output)
-        raise RuntimeError(f"Unsupported provider output type: {type(output).__name__}")
-
-    @staticmethod
-    def to_response(result: VirtualTryOnResult, public_base_url: str):
-        from .schema import VirtualTryOnResponse
-
-        return VirtualTryOnResponse(
-            id=result.id,
-            profile_id=result.profile_id,
-            image_url=f"{public_base_url.rstrip('/')}{result.image_url}",
-            item_ids=json.loads(result.item_ids_json),
-            model=VirtualTryOnModel(result.model),
-            created_at=result.created_at,
-            saved=result.saved,
+    def _build_prompt(garment_names: list[str]) -> str:
+        garments = ", ".join(garment_names)
+        return (
+            "Create a realistic virtual try-on image. Preserve the person's identity, "
+            "body proportions, pose, hair, skin tone, and overall appearance. Replace "
+            f"the clothing with the selected wardrobe items: {garments}. "
+            "Fit the garments naturally and accurately. Keep the full person visible. "
+            "Do not add accessories or garments that were not selected."
         )
+
+    def to_response(self, result: VirtualTryOnResult, base_url: str) -> dict:
+        image_url = result.image_url
+        if image_url.startswith("/"):
+            image_url = f"{base_url.rstrip('/')}{image_url}"
+        return {
+            "id": result.id,
+            "profile_id": result.profile_id,
+            "image_url": image_url,
+            "item_ids": json.loads(result.item_ids_json),
+            "model": result.model,
+            "created_at": result.created_at,
+            "saved": result.saved,
+        }
 
     def set_saved(
         self,
@@ -415,19 +324,18 @@ Output only the finished image.
         profile: Profile,
         result_id: UUID,
         saved: bool,
-    ):
-        result = session.get(VirtualTryOnResult, result_id)
-        if result is None or result.profile_id != profile.id:
-            raise HTTPException(
-                status_code=404,
-                detail="Virtual Try-On result not found.",
+    ) -> dict:
+        result = session.exec(
+            select(VirtualTryOnResult).where(
+                VirtualTryOnResult.id == result_id,
+                VirtualTryOnResult.profile_id == profile.id,
             )
+        ).first()
+        if result is None:
+            raise HTTPException(status_code=404, detail="Virtual Try-On result not found.")
 
         result.saved = saved
         session.add(result)
         session.commit()
         session.refresh(result)
-
-        from .schema import VirtualTryOnSaveResponse
-
-        return VirtualTryOnSaveResponse(id=result.id, saved=result.saved)
+        return {"id": result.id, "saved": result.saved}
