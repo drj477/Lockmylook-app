@@ -286,13 +286,6 @@ class _VtoHistoryScreenState extends ConsumerState<VtoHistoryScreen> {
         ),
       );
 
-  String _modelLabel(VirtualTryOnModel model) => switch (model) {
-        VirtualTryOnModel.dTryon => 'D-Tryon',
-        VirtualTryOnModel.gemini => 'Gemini',
-        VirtualTryOnModel.geminiChat => 'Gemini Chat',
-        VirtualTryOnModel.replicate => 'Replicate',
-      };
-
   String _date(DateTime value) {
     final local = value.toLocal();
     return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
