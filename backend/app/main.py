@@ -18,7 +18,6 @@ from app.database import session as db_session
 from app.outfits.router import router as outfits_router
 from app.profiles.router import router as profiles_router
 from app.virtual_try_on.router import router as virtual_try_on_router
-from app.virtual_try_on.router import service as virtual_try_on_service
 from app.wardrobe.category_router import router as wardrobe_category_router
 from app.wardrobe.image_router import router as wardrobe_image_router
 from app.wardrobe.router import router as wardrobe_router
@@ -40,7 +39,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    await virtual_try_on_service.close()
+    # VirtualTryOnService does not currently own a closeable resource.
+    # Gemini Chat's underlying client lifecycle is managed by its provider/
+    # library, so do not call a nonexistent service.close() during shutdown.
     logger.info("Application shutdown complete.")
 
 
