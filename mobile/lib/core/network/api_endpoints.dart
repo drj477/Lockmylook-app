@@ -20,4 +20,5 @@ abstract final class ApiEndpoints {
   /// Credits
   static const String creditsBalance = '/credits/balance';
   static const String creditsTransactions = '/credits/transactions';
+  static const String creditPurchases = '/credits/purchases';
 }
