@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PurchaseCreateRequest(BaseModel):
@@ -10,6 +10,8 @@ class PurchaseCreateRequest(BaseModel):
 
 
 class PurchaseResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     package_code: str
     credits: int
@@ -19,4 +21,3 @@ class PurchaseResponse(BaseModel):
     payment_provider: str | None
     provider_order_id: str | None
     created_at: datetime
-
