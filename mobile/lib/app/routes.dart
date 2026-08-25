@@ -21,6 +21,7 @@ abstract final class AppRoutes {
   static const journal = '/journal';
   static const settings = '/settings';
   static const vtoHistory = '/settings/vto-history';
+  static const buyCredits = '/settings/buy-credits';
 
   static const premium = '/premium';
 }
