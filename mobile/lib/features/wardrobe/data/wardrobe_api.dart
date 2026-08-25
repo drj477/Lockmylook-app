@@ -12,37 +12,21 @@ class WardrobeApi {
   final ApiClient _apiClient;
 
   Future<List<WardrobeItem>> listItems(String profileId) async {
-    final response = await _apiClient.get(
-      '${ApiEndpoints.profiles}/$profileId/wardrobe',
-    );
-
+    final response = await _apiClient.get('${ApiEndpoints.profiles}/$profileId/wardrobe');
     final items = response.data as List<dynamic>;
-
-    return items
-        .map((item) => WardrobeItem.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return items.map((item) => WardrobeItem.fromJson(item as Map<String, dynamic>)).toList();
   }
 
-  Future<WardrobeItem> getItem({
-    required String profileId,
-    required String itemId,
-  }) async {
-    final response = await _apiClient.get(
-      '${ApiEndpoints.profiles}/$profileId/wardrobe/$itemId',
-    );
-
+  Future<WardrobeItem> getItem({required String profileId, required String itemId}) async {
+    final response = await _apiClient.get('${ApiEndpoints.profiles}/$profileId/wardrobe/$itemId');
     return WardrobeItem.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<WardrobeItem> createItem({
-    required String profileId,
-    required WardrobeCreateRequest request,
-  }) async {
+  Future<WardrobeItem> createItem({required String profileId, required WardrobeCreateRequest request}) async {
     final response = await _apiClient.post(
       '${ApiEndpoints.profiles}/$profileId/wardrobe',
       data: request.toJson(),
     );
-
     return WardrobeItem.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -55,7 +39,6 @@ class WardrobeApi {
       '${ApiEndpoints.profiles}/$profileId/wardrobe/$itemId',
       data: request.toJson(),
     );
-
     return WardrobeItem.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -63,14 +46,14 @@ class WardrobeApi {
     required String profileId,
     required String itemId,
     required File file,
+    required bool removeBackground,
   }) async {
     final formData = FormData.fromMap({
       'file': await MultipartFile.fromFile(
         file.path,
-        filename: file.uri.pathSegments.isNotEmpty
-            ? file.uri.pathSegments.last
-            : 'wardrobe-image.jpg',
+        filename: file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : 'wardrobe-image.jpg',
       ),
+      'remove_background': removeBackground.toString(),
     });
 
     final response = await _apiClient.postMultipart(
@@ -82,23 +65,14 @@ class WardrobeApi {
     return envelope['data'] as Map<String, dynamic>;
   }
 
-  Future<void> deleteItem({
-    required String profileId,
-    required String itemId,
-  }) async {
-    await _apiClient.delete(
-      '${ApiEndpoints.profiles}/$profileId/wardrobe/$itemId',
-    );
+  Future<void> deleteItem({required String profileId, required String itemId}) async {
+    await _apiClient.delete('${ApiEndpoints.profiles}/$profileId/wardrobe/$itemId');
   }
 
   Future<List<WardrobeCategory>> listCategories() async {
     final response = await _apiClient.get(ApiEndpoints.wardrobeCategories);
-
     final data = response.data as Map<String, dynamic>;
     final categories = data['data'] as List<dynamic>;
-
-    return categories
-        .map((item) => WardrobeCategory.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return categories.map((item) => WardrobeCategory.fromJson(item as Map<String, dynamic>)).toList();
   }
 }
