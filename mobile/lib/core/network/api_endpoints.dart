@@ -16,4 +16,8 @@ abstract final class ApiEndpoints {
   /// Wardrobe
   static const String wardrobe = '/wardrobe';
   static const String wardrobeCategories = '/wardrobe/categories';
+
+  /// Credits
+  static const String creditsBalance = '/credits/balance';
+  static const String creditsTransactions = '/credits/transactions';
 }
