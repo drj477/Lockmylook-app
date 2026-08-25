@@ -5,6 +5,7 @@ import 'package:mobile/app/routes.dart';
 import 'package:mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/register_screen.dart';
 import 'package:mobile/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:mobile/features/credits/presentation/screens/buy_credits_screen.dart';
 import 'package:mobile/features/home/presentation/screens/home_screen.dart';
 import 'package:mobile/features/outfits/presentation/screens/outfit_builder_screen.dart';
 import 'package:mobile/features/outfits/presentation/screens/vto_history_screen.dart';
@@ -30,6 +31,7 @@ class AppRouter {
       GoRoute(path: AppRoutes.home, name: 'home', builder: (_, _) => const HomeScreen()),
       GoRoute(path: AppRoutes.settings, name: 'settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(path: AppRoutes.vtoHistory, name: 'vto-history', builder: (_, _) => const VtoHistoryScreen()),
+      GoRoute(path: AppRoutes.buyCredits, name: 'buy-credits', builder: (_, _) => const BuyCreditsScreen()),
       GoRoute(path: AppRoutes.profiles, name: 'profiles', builder: (_, _) => const ProfilesScreen()),
       GoRoute(
         path: AppRoutes.wardrobe,
