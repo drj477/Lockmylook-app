@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:mobile/app/routes.dart';
 import 'package:mobile/core/theme/lockmylook_ui.dart';
+import 'package:mobile/features/credits/application/credit_providers.dart';
+import 'package:mobile/features/credits/data/models/credit_models.dart';
 import 'package:mobile/features/outfits/data/models/virtual_try_on_models.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   VirtualTryOnModel _defaultModel = VirtualTryOnModel.dTryon;
 
   @override
   Widget build(BuildContext context) {
+    final creditState = ref.watch(creditBalanceProvider);
+    final balance = creditState.valueOrNull;
+
     return Scaffold(
       backgroundColor: LockMyLookUi.background,
       appBar: AppBar(
@@ -36,7 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _settingTile(
             icon: Icons.bolt_rounded,
             title: 'Credits',
-            subtitle: '248 credits available',
+            subtitle: _balanceSubtitle(creditState, balance),
             accent: true,
             onTap: _showCredits,
           ),
@@ -139,6 +145,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  String _balanceSubtitle(
+    AsyncValue<CreditBalance> state,
+    CreditBalance? balance,
+  ) {
+    if (balance != null) {
+      return '${_formatCredits(balance.balanceCredits)} credits available';
+    }
+    if (state.isLoading) return 'Loading balance...';
+    return 'Unable to load balance';
+  }
+
+  String _formatCredits(double credits) {
+    return credits == credits.roundToDouble()
+        ? credits.toInt().toString()
+        : credits.toStringAsFixed(1);
   }
 
   Widget _accountCard() {
@@ -313,8 +336,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         subtitle: Text(
           model == VirtualTryOnModel.dTryon
-              ? 'From 5 credits'
-              : '18 credits · Gemini 3.1 · 1K',
+              ? '2 credits per generation'
+              : '2 credits per generation · Gemini 3.1 · 1K',
         ),
         trailing: selected
             ? const Icon(Icons.check_circle_rounded, color: LockMyLookUi.coral)
@@ -323,7 +346,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showCredits() {
+  Future<void> _showCredits() async {
+    final balance = await _loadCreditBalance();
+    if (!mounted) return;
+
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -335,14 +361,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const Text('Credits', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 4),
-            const Text('248 credits available', style: TextStyle(color: LockMyLookUi.muted)),
+            Text(
+              balance == null
+                  ? 'Unable to load balance'
+                  : '${_formatCredits(balance.balanceCredits)} credits available',
+              style: const TextStyle(color: LockMyLookUi.muted),
+            ),
             const SizedBox(height: 20),
-            _creditRow('D-Tryon · 1 garment', '5 credits'),
-            _creditRow('D-Tryon · 2 garments', '7 credits'),
-            _creditRow('D-Tryon · 3 garments', '9 credits'),
-            _creditRow('D-Tryon · 4 garments', '12 credits'),
-            _creditRow('Gemini 3.1 Flash Image · 1K', '18 credits'),
-            _creditRow('Cached result', '1 credit'),
+            _creditRow('Paid generation · D-Tryon', '2 credits'),
+            _creditRow('Paid generation · Gemini Image', '2 credits'),
+            _creditRow('Gemini Chat', '1 credit'),
+            _creditRow('Cached result', '0.5 credit'),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -359,6 +388,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<CreditBalance?> _loadCreditBalance() async {
+    try {
+      final balance = await ref.read(creditApiProvider).getBalance();
+      ref.invalidate(creditBalanceProvider);
+      return balance;
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _creditRow(String name, String cost) => Padding(
