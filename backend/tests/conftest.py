@@ -9,6 +9,7 @@ from app.database import session as db_session
 from app.database.session import get_session
 from app.main import app
 from app.profiles.model import Profile  # noqa: F401
+from app.purchases.model import CreditPurchase  # noqa: F401
 
 
 @pytest.fixture(name="session")
