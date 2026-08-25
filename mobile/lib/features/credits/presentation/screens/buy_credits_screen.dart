@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:mobile/core/theme/lockmylook_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class BuyCreditsScreen extends StatelessWidget {
+import 'package:mobile/core/theme/lockmylook_ui.dart';
+import 'package:mobile/features/credits/application/credit_providers.dart';
+
+class BuyCreditsScreen extends ConsumerStatefulWidget {
   const BuyCreditsScreen({super.key});
 
+  @override
+  ConsumerState<BuyCreditsScreen> createState() => _BuyCreditsScreenState();
+}
+
+class _BuyCreditsScreenState extends ConsumerState<BuyCreditsScreen> {
   static const _packages = [
     _CreditPackage(
       code: 'basic',
@@ -36,6 +44,8 @@ class BuyCreditsScreen extends StatelessWidget {
     ),
   ];
 
+  String? _creatingPackage;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,7 +74,7 @@ class BuyCreditsScreen extends StatelessWidget {
             style: TextStyle(color: LockMyLookUi.muted, fontSize: 13),
           ),
           const SizedBox(height: 22),
-          for (final package in _packages) _PackageCard(package: package),
+          for (final package in _packages) _PackageCard(package: package, onBuy: _createPurchase, isLoading: _creatingPackage == package.code),
           const SizedBox(height: 12),
           const Text(
             'Payments will be securely verified before credits are added to your account.',
@@ -74,6 +84,61 @@ class BuyCreditsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _createPurchase(_CreditPackage package) async {
+    if (_creatingPackage != null) return;
+
+    setState(() => _creatingPackage = package.code);
+    try {
+      final purchase = await ref.read(creditApiProvider).createPurchase(package.code);
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_clock_rounded, size: 30, color: LockMyLookUi.coral),
+              const SizedBox(height: 10),
+              Text(
+                '${purchase.credits} credits · ₹${purchase.amountPaise ~/ 100}',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Your purchase is ready for secure checkout. No credits have been added yet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: LockMyLookUi.muted),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Status: ${purchase.status.toUpperCase()}',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: LockMyLookUi.muted),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Continue'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not prepare purchase: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _creatingPackage = null);
+    }
   }
 }
 
@@ -96,9 +161,11 @@ class _CreditPackage {
 }
 
 class _PackageCard extends StatelessWidget {
-  const _PackageCard({required this.package});
+  const _PackageCard({required this.package, required this.onBuy, required this.isLoading});
 
   final _CreditPackage package;
+  final Future<void> Function(_CreditPackage package) onBuy;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -109,9 +176,7 @@ class _PackageCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: package.featured
-              ? LockMyLookUi.coral
-              : Colors.black.withAlpha(10),
+          color: package.featured ? LockMyLookUi.coral : Colors.black.withAlpha(10),
           width: package.featured ? 1.5 : 1,
         ),
         boxShadow: [
@@ -136,54 +201,32 @@ class _PackageCard extends StatelessWidget {
                       children: [
                         Text(
                           package.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: LockMyLookUi.ink,
-                          ),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: LockMyLookUi.ink),
                         ),
                         if (package.featured) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: LockMyLookUi.coralSoft,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
                               'POPULAR',
-                              style: TextStyle(
-                                color: LockMyLookUi.coral,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .7,
-                              ),
+                              style: TextStyle(color: LockMyLookUi.coral, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: .7),
                             ),
                           ),
                         ],
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      package.description,
-                      style: const TextStyle(
-                        color: LockMyLookUi.muted,
-                        fontSize: 11,
-                      ),
-                    ),
+                    Text(package.description, style: const TextStyle(color: LockMyLookUi.muted, fontSize: 11)),
                   ],
                 ),
               ),
               Text(
                 '₹${package.price}',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: LockMyLookUi.ink,
-                ),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: LockMyLookUi.ink),
               ),
             ],
           ),
@@ -191,66 +234,23 @@ class _PackageCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: LockMyLookUi.coralSoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+                decoration: BoxDecoration(color: LockMyLookUi.coralSoft, borderRadius: BorderRadius.circular(12)),
                 child: Text(
                   '${package.credits} credits',
-                  style: const TextStyle(
-                    color: LockMyLookUi.coral,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: const TextStyle(color: LockMyLookUi.coral, fontSize: 13, fontWeight: FontWeight.w900),
                 ),
               ),
               const Spacer(),
               FilledButton(
-                onPressed: () => _showComingSoon(context, package),
-                child: const Text('Buy'),
+                onPressed: isLoading ? null : () => onBuy(package),
+                child: isLoading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Buy'),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  void _showComingSoon(BuildContext context, _CreditPackage package) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.lock_rounded, size: 30, color: LockMyLookUi.coral),
-            const SizedBox(height: 10),
-            Text(
-              '${package.credits} credits · ₹${package.price}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Payment checkout will be connected in the next billing step.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: LockMyLookUi.muted),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Got it'),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
