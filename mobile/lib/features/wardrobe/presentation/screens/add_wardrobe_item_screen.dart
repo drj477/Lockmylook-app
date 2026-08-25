@@ -30,6 +30,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
   String? _categoryId;
   bool _loadingCategories = true;
+  bool _removeBackground = false;
   File? _selectedImage;
 
   @override
@@ -71,15 +72,9 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Add item photo', style: TextStyle(color: LockMyLookUi.ink, fontSize: 18, fontWeight: FontWeight.w800)),
-              ),
+              const Align(alignment: Alignment.centerLeft, child: Text('Add item photo', style: TextStyle(color: LockMyLookUi.ink, fontSize: 18, fontWeight: FontWeight.w800))),
               const SizedBox(height: 4),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Choose how you want to add it.', style: TextStyle(color: LockMyLookUi.muted)),
-              ),
+              const Align(alignment: Alignment.centerLeft, child: Text('Choose how you want to add it.', style: TextStyle(color: LockMyLookUi.muted))),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -114,12 +109,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
         decoration: BoxDecoration(color: LockMyLookUi.background, borderRadius: BorderRadius.circular(18), border: Border.all(color: LockMyLookUi.border)),
         child: Column(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle),
-              child: Icon(icon, color: LockMyLookUi.coral),
-            ),
+            Container(width: 44, height: 44, decoration: const BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle), child: Icon(icon, color: LockMyLookUi.coral)),
             const SizedBox(height: 8),
             Text(label, style: const TextStyle(fontWeight: FontWeight.w700, color: LockMyLookUi.ink)),
           ],
@@ -155,6 +145,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
       profileId: widget.profileId,
       request: request,
       imageFile: image,
+      removeBackground: _removeBackground,
     );
     if (!mounted) return;
     if (success) {
@@ -211,6 +202,8 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
               _heroIntro(),
               const SizedBox(height: 16),
               _imageSection(creating),
+              const SizedBox(height: 12),
+              _backgroundRemovalOption(creating),
               const SizedBox(height: 20),
               _sectionHeader('Item details', 'Tell us about this piece'),
               const SizedBox(height: 12),
@@ -225,12 +218,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
               ),
               if (_loadingCategories) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(minHeight: 2)),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _nameController,
-                textInputAction: TextInputAction.next,
-                decoration: _fieldDecoration(label: 'Name', hint: 'e.g. White Oxford Shirt', icon: Icons.checkroom_outlined),
-                validator: (value) => value == null || value.trim().isEmpty ? 'Name is required' : null,
-              ),
+              TextFormField(controller: _nameController, textInputAction: TextInputAction.next, decoration: _fieldDecoration(label: 'Name', hint: 'e.g. White Oxford Shirt', icon: Icons.checkroom_outlined), validator: (value) => value == null || value.trim().isEmpty ? 'Name is required' : null),
               const SizedBox(height: 12),
               TextFormField(controller: _brandController, textInputAction: TextInputAction.next, decoration: _fieldDecoration(label: 'Brand', hint: 'e.g. Uniqlo', icon: Icons.sell_outlined)),
               const SizedBox(height: 12),
@@ -260,59 +248,61 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
     );
   }
 
-  Widget _heroIntro() {
+  Widget _backgroundRemovalOption(bool disabled) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
+      padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFFFFF1EF), Color(0xFFF4F2FF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFF0E7E5)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _removeBackground ? LockMyLookUi.coral.withValues(alpha: .45) : LockMyLookUi.border),
       ),
       child: Row(
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(blurRadius: 14, offset: Offset(0, 5), color: Color(0x12000000))]),
-            child: const Icon(Icons.checkroom_outlined, color: LockMyLookUi.coral, size: 27),
-          ),
-          const SizedBox(width: 13),
+          Container(width: 40, height: 40, decoration: const BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle), child: const Icon(Icons.auto_fix_high_outlined, color: LockMyLookUi.coral, size: 21)),
+          const SizedBox(width: 11),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Build your wardrobe', style: TextStyle(color: LockMyLookUi.ink, fontSize: 17, fontWeight: FontWeight.w800)),
-                SizedBox(height: 3),
-                Text('Add one piece and let LockMyLook make it style-ready.', style: TextStyle(color: LockMyLookUi.muted, fontSize: 12, height: 1.35)),
+                Text('Clean up background', style: TextStyle(color: LockMyLookUi.ink, fontSize: 14, fontWeight: FontWeight.w800)),
+                SizedBox(height: 2),
+                Text('Remove it and use LockMyLook cream.', style: TextStyle(color: LockMyLookUi.muted, fontSize: 11, height: 1.3)),
               ],
             ),
+          ),
+          Switch.adaptive(
+            value: _removeBackground,
+            onChanged: disabled ? null : (value) => setState(() => _removeBackground = value),
+            activeColor: LockMyLookUi.coral,
           ),
         ],
       ),
     );
   }
 
-  Widget _sectionHeader(String title, String subtitle) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(color: LockMyLookUi.ink, fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 3),
-        Text(subtitle, style: const TextStyle(color: LockMyLookUi.muted, fontSize: 12)),
-      ],
+  Widget _heroIntro() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
+      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFFFF1EF), Color(0xFFF4F2FF)], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xFFF0E7E5))),
+      child: Row(
+        children: [
+          Container(width: 52, height: 52, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(blurRadius: 14, offset: Offset(0, 5), color: Color(0x12000000))]), child: const Icon(Icons.checkroom_outlined, color: LockMyLookUi.coral, size: 27)),
+          const SizedBox(width: 13),
+          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Build your wardrobe', style: TextStyle(color: LockMyLookUi.ink, fontSize: 17, fontWeight: FontWeight.w800)), SizedBox(height: 3), Text('Add one piece and let LockMyLook make it style-ready.', style: TextStyle(color: LockMyLookUi.muted, fontSize: 12, height: 1.35))])),
+        ],
+      ),
     );
+  }
+
+  Widget _sectionHeader(String title, String subtitle) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: LockMyLookUi.ink, fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 3), Text(subtitle, style: const TextStyle(color: LockMyLookUi.muted, fontSize: 12))]);
   }
 
   Widget _imageSection(bool disabled) {
     final image = _selectedImage;
     return Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: LockMyLookUi.border),
-        boxShadow: const [BoxShadow(blurRadius: 20, offset: Offset(0, 7), color: Color(0x0D000000))],
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: LockMyLookUi.border), boxShadow: const [BoxShadow(blurRadius: 20, offset: Offset(0, 7), color: Color(0x0D000000))]),
       child: GestureDetector(
         onTap: disabled ? null : _pickImage,
         child: Container(
@@ -321,42 +311,8 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
           decoration: BoxDecoration(color: LockMyLookUi.background, borderRadius: BorderRadius.circular(17)),
           clipBehavior: Clip.antiAlias,
           child: image == null
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(width: 62, height: 62, decoration: const BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle), child: const Icon(Icons.add_photo_alternate_outlined, size: 31, color: LockMyLookUi.coral)),
-                    const SizedBox(height: 12),
-                    const Text('Add item photo', style: TextStyle(color: LockMyLookUi.ink, fontSize: 15, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    const Text('Tap to use camera or gallery', style: TextStyle(color: LockMyLookUi.muted, fontSize: 12)),
-                  ],
-                )
-              : Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(image, fit: BoxFit.contain),
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        elevation: 3,
-                        child: IconButton(onPressed: disabled ? null : () => setState(() => _selectedImage = null), icon: const Icon(Icons.close, color: LockMyLookUi.ink), tooltip: 'Remove image'),
-                      ),
-                    ),
-                    Positioned(
-                      left: 12,
-                      bottom: 12,
-                      child: ElevatedButton.icon(
-                        onPressed: disabled ? null : _pickImage,
-                        icon: const Icon(Icons.edit_outlined, size: 17),
-                        label: const Text('Change'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: LockMyLookUi.ink, elevation: 4, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                      ),
-                    ),
-                  ],
-                ),
+              ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(width: 62, height: 62, decoration: const BoxDecoration(color: LockMyLookUi.coralSoft, shape: BoxShape.circle), child: const Icon(Icons.add_photo_alternate_outlined, size: 31, color: LockMyLookUi.coral)), const SizedBox(height: 12), const Text('Add item photo', style: TextStyle(color: LockMyLookUi.ink, fontSize: 15, fontWeight: FontWeight.w800)), const SizedBox(height: 4), const Text('Tap to use camera or gallery', style: TextStyle(color: LockMyLookUi.muted, fontSize: 12))])
+              : Stack(fit: StackFit.expand, children: [Image.file(image, fit: BoxFit.contain), Positioned(top: 10, right: 10, child: Material(color: Colors.white, shape: const CircleBorder(), elevation: 3, child: IconButton(onPressed: disabled ? null : () => setState(() => _selectedImage = null), icon: const Icon(Icons.close, color: LockMyLookUi.ink), tooltip: 'Remove image'))), Positioned(left: 12, bottom: 12, child: ElevatedButton.icon(onPressed: disabled ? null : _pickImage, icon: const Icon(Icons.edit_outlined, size: 17), label: const Text('Change'), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: LockMyLookUi.ink, elevation: 4, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))))]),
         ),
       ),
     );
@@ -364,10 +320,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
 
   Widget _saveButton(bool creating) {
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(17),
-        boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 7))],
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(17), boxShadow: [BoxShadow(color: LockMyLookUi.coral.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 7))]),
       child: SizedBox(
         height: 54,
         width: double.infinity,
