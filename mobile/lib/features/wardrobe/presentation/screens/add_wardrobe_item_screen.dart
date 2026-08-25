@@ -273,7 +273,7 @@ class _AddWardrobeItemScreenState extends ConsumerState<AddWardrobeItemScreen> {
           Switch.adaptive(
             value: _removeBackground,
             onChanged: disabled ? null : (value) => setState(() => _removeBackground = value),
-            activeColor: LockMyLookUi.coral,
+            activeThumbColor: LockMyLookUi.coral,
           ),
         ],
       ),
