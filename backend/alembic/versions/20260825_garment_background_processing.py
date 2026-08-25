@@ -1,6 +1,6 @@
 """add optional garment background processing metadata
 
-Revision ID: 20260825_garment_background_processing
+Revision ID: 20260825_garment_bg
 Revises: 20260825_credit_purchases
 Create Date: 2026-08-25
 """
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "20260825_garment_background_processing"
+revision = "20260825_garment_bg"
 down_revision = "20260825_credit_purchases"
 branch_labels = None
 depends_on = None
