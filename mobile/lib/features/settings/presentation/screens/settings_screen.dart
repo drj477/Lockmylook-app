@@ -376,10 +376,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => _showInfo(
-                  'Buy Credits',
-                  'Payment packages will be connected when billing is enabled.',
-                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  this.context.push(AppRoutes.buyCredits);
+                },
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Buy Credits'),
               ),
