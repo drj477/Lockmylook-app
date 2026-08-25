@@ -17,6 +17,7 @@ from app.credits.router import router as credits_router
 from app.database import session as db_session
 from app.outfits.router import router as outfits_router
 from app.profiles.router import router as profiles_router
+from app.purchases.router import router as purchases_router
 from app.virtual_try_on.router import router as virtual_try_on_router
 from app.wardrobe.category_router import router as wardrobe_category_router
 from app.wardrobe.image_router import router as wardrobe_image_router
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix=settings.API_V1_PREFIX)
     app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
     app.include_router(credits_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(purchases_router, prefix=settings.API_V1_PREFIX)
     app.include_router(profiles_router, prefix=settings.API_V1_PREFIX)
     app.include_router(
         wardrobe_category_router,
