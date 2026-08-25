@@ -75,7 +75,10 @@ async def generate_try_on(
         model=payload.model,
     )
 
-    return service.to_response(result, str(request.base_url).rstrip("/"))
+    # Response serialization belongs to the router; VirtualTryOnService only
+    # generates/persists the domain result. Keep cache hits and fresh generations
+    # on the same response path.
+    return _to_response(result, str(request.base_url).rstrip("/"))
 
 
 @router.get(
@@ -152,23 +155,4 @@ def delete_try_on_result(
 
     session.delete(result)
     session.commit()
-
-    return {"deleted": True, "result_id": result_id}
-
-
-@router.patch(
-    "/profiles/{profile_id}/try-on/{result_id}/save",
-    response_model=VirtualTryOnSaveResponse,
-)
-def save_try_on(
-    result_id: UUID,
-    saved: bool = True,
-    owned_profile: Profile = Depends(get_owned_profile),
-    session: Session = Depends(get_session),
-):
-    return service.set_saved(
-        session=session,
-        profile=owned_profile,
-        result_id=result_id,
-        saved=saved,
-    )
+    return {"deleted": 1}
