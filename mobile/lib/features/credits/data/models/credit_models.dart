@@ -1,3 +1,5 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 class CreditBalance {
   const CreditBalance({
     required this.balanceCredits,
@@ -13,4 +15,10 @@ class CreditBalance {
       balanceRupees: (json['balance_rupees'] as num).toDouble(),
     );
   }
+}
+
+/// Compatibility helper for Riverpod versions where AsyncValue.valueOrNull
+/// is no longer exposed directly.
+extension AsyncValueValueOrNull<T> on AsyncValue<T> {
+  T? get valueOrNull => asData?.value;
 }
