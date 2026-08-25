@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlmodel import Session
 
 from app.auth.dependencies import get_current_account
@@ -28,10 +28,10 @@ async def upload_image(
     profile_id: UUID,
     item_id: UUID,
     file: UploadFile = File(...),
+    remove_background: bool = Form(False),
     current_account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ) -> Envelope[ImageRead]:
-
     get_owned_profile(
         session=session,
         account_id=current_account.id,
@@ -42,6 +42,7 @@ async def upload_image(
         session=session,
         item_id=item_id,
         file=file,
+        remove_background=remove_background,
     )
 
     return Envelope(
@@ -60,24 +61,17 @@ async def list_images(
     current_account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ) -> Envelope[list[ImageRead]]:
-
     get_owned_profile(
         session=session,
         account_id=current_account.id,
         profile_id=profile_id,
     )
 
-    images = service.list(
-        session=session,
-        item_id=item_id,
-    )
+    images = service.list(session=session, item_id=item_id)
 
     return Envelope(
         message="Images retrieved successfully.",
-        data=[
-            ImageRead.model_validate(image)
-            for image in images
-        ],
+        data=[ImageRead.model_validate(image) for image in images],
     )
 
 
@@ -92,14 +86,10 @@ async def delete_image(
     current_account: Account = Depends(get_current_account),
     session: Session = Depends(get_session),
 ) -> None:
-
     get_owned_profile(
         session=session,
         account_id=current_account.id,
         profile_id=profile_id,
     )
 
-    service.delete(
-        session=session,
-        image_id=image_id,
-    )
+    service.delete(session=session, image_id=image_id)
