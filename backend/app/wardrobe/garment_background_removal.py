@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import io
-from pathlib import Path
-from threading import Lock
 
-from loguru import logger
 from PIL import Image, ImageOps
 
 from app.profiles.background_removal import _get_session
@@ -13,12 +10,7 @@ CREAM_BACKGROUND = (248, 247, 246, 255)
 
 
 def remove_garment_background(image_bytes: bytes) -> bytes:
-    """Remove the garment background with the existing BiRefNet session.
-
-    The segmentation model is shared with the existing VTO background-removal
-    infrastructure, but garment framing/output is intentionally separate from
-    the person/VTO normalization pipeline.
-    """
+    """Remove a garment background using the existing BiRefNet session."""
     if not image_bytes:
         raise ValueError("Garment image cannot be empty.")
 
@@ -64,7 +56,10 @@ def remove_garment_background(image_bytes: bytes) -> bytes:
         target = (1024, 1024)
         scale = min(900 / cropped.width, 900 / cropped.height)
         resized = cropped.resize(
-            (max(1, round(cropped.width * scale)), max(1, round(cropped.height * scale))),
+            (
+                max(1, round(cropped.width * scale)),
+                max(1, round(cropped.height * scale)),
+            ),
             Image.Resampling.LANCZOS,
         )
 
@@ -74,5 +69,10 @@ def remove_garment_background(image_bytes: bytes) -> bytes:
         canvas.alpha_composite(resized, (x, y))
 
         result = io.BytesIO()
-        canvas.convert("RGB").save(result, format="JPEG", quality=95, optimize=True)
+        canvas.convert("RGB").save(
+            result,
+            format="JPEG",
+            quality=95,
+            optimize=True,
+        )
         return result.getvalue()
