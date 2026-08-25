@@ -8,53 +8,34 @@ class WardrobeRepository {
 
   final WardrobeApi _api;
 
-  Future<List<WardrobeItem>> listItems(String profileId) {
-    return _api.listItems(profileId);
-  }
+  Future<List<WardrobeItem>> listItems(String profileId) => _api.listItems(profileId);
 
-  Future<WardrobeItem> getItem({
-    required String profileId,
-    required String itemId,
-  }) {
-    return _api.getItem(profileId: profileId, itemId: itemId);
-  }
+  Future<WardrobeItem> getItem({required String profileId, required String itemId}) =>
+      _api.getItem(profileId: profileId, itemId: itemId);
 
-  Future<WardrobeItem> createItem({
-    required String profileId,
-    required WardrobeCreateRequest request,
-  }) {
-    return _api.createItem(profileId: profileId, request: request);
-  }
+  Future<WardrobeItem> createItem({required String profileId, required WardrobeCreateRequest request}) =>
+      _api.createItem(profileId: profileId, request: request);
 
   Future<WardrobeItem> updateItem({
     required String profileId,
     required String itemId,
     required WardrobeUpdateRequest request,
-  }) {
-    return _api.updateItem(
-      profileId: profileId,
-      itemId: itemId,
-      request: request,
-    );
-  }
+  }) => _api.updateItem(profileId: profileId, itemId: itemId, request: request);
 
   Future<Map<String, dynamic>> uploadImage({
     required String profileId,
     required String itemId,
     required File file,
-  }) {
-    return _api.uploadImage(
-      profileId: profileId,
-      itemId: itemId,
-      file: file,
-    );
-  }
+    required bool removeBackground,
+  }) => _api.uploadImage(
+        profileId: profileId,
+        itemId: itemId,
+        file: file,
+        removeBackground: removeBackground,
+      );
 
-  Future<void> deleteItem({required String profileId, required String itemId}) {
-    return _api.deleteItem(profileId: profileId, itemId: itemId);
-  }
+  Future<void> deleteItem({required String profileId, required String itemId}) =>
+      _api.deleteItem(profileId: profileId, itemId: itemId);
 
-  Future<List<WardrobeCategory>> listCategories() {
-    return _api.listCategories();
-  }
+  Future<List<WardrobeCategory>> listCategories() => _api.listCategories();
 }
