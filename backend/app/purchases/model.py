@@ -15,7 +15,7 @@ class PurchaseStatus:
 
 
 class CreditPurchase(SQLModel, table=True):
-    """Immutable purchase record plus payment-provider state.
+    """Purchase record plus payment-provider state.
 
     Credit amounts and INR amounts are snapshotted on the purchase so later
     package-price changes cannot alter the meaning of an existing order.
