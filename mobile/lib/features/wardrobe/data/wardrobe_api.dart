@@ -59,6 +59,9 @@ class WardrobeApi {
     final response = await _apiClient.postMultipart(
       '${ApiEndpoints.profiles}/$profileId/wardrobe/$itemId/images',
       data: formData,
+      options: removeBackground
+          ? Options(receiveTimeout: const Duration(seconds: 90))
+          : null,
     );
 
     final envelope = response.data as Map<String, dynamic>;
