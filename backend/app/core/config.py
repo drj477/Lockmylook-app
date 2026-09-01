@@ -5,13 +5,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 _DEFAULT_JWT_SECRET = "change-me-in-.env-this-is-not-a-real-secret"
+_DEFAULT_DATABASE_URL = "postgresql+psycopg://lockmylook:lockmylook_dev@localhost:5432/lockmylook"
 
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment / local .env.
 
-    Security-sensitive settings intentionally have no insecure defaults. A
-    missing or weak JWT secret prevents the application from starting.
+    Security-sensitive JWT configuration has no insecure default. Production
+    also rejects the development database fallback.
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -21,8 +22,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     API_V1_PREFIX: str = "/api/v1"
 
-    # Database: explicit configuration is required in production.
-    DATABASE_URL: str = ""
+    # Database. Kept for local development compatibility; production rejects it.
+    DATABASE_URL: str = _DEFAULT_DATABASE_URL
 
     # JWT
     JWT_SECRET_KEY: str
@@ -54,8 +55,6 @@ class Settings(BaseSettings):
         if self.JWT_SECRET_KEY == _DEFAULT_JWT_SECRET:
             raise ValueError("JWT_SECRET_KEY is still using the insecure development default.")
 
-        # 32 random bytes encoded with secrets.token_urlsafe(32) are normally
-        # 43+ characters. This rejects short human-chosen secrets.
         if len(self.JWT_SECRET_KEY) < 43:
             raise ValueError(
                 "JWT_SECRET_KEY must be at least 43 characters of cryptographically random data."
@@ -67,8 +66,11 @@ class Settings(BaseSettings):
         if self.REFRESH_TOKEN_EXPIRE_DAYS <= 0 or self.REFRESH_TOKEN_EXPIRE_DAYS > 30:
             raise ValueError("REFRESH_TOKEN_EXPIRE_DAYS must be between 1 and 30.")
 
-        if self.ENVIRONMENT.lower() in {"production", "prod"} and not self.DATABASE_URL:
-            raise ValueError("DATABASE_URL is required in production.")
+        if self.ENVIRONMENT.lower() in {"production", "prod"}:
+            if not self.DATABASE_URL:
+                raise ValueError("DATABASE_URL is required in production.")
+            if self.DATABASE_URL == _DEFAULT_DATABASE_URL:
+                raise ValueError("Production cannot use the development database URL.")
 
         return self
 
