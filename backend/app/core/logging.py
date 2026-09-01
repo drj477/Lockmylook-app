@@ -11,19 +11,10 @@ def _inject_request_id(record: dict) -> None:
 
 
 def configure_logging() -> None:
-    """Configure Loguru once at startup.
-
-    We log meaningful business events (user registered, login, profile
-    created) at INFO, and failures at ERROR. We do NOT log request/response
-    noise for every endpoint -- that belongs in access logs / APM, not here.
-
-    Every log line is tagged with the current request's correlation ID
-    (X-Request-ID), so a single request's logs can be grepped together even
-    under concurrent load.
-    """
+    """Configure Loguru once at startup without request/credential noise."""
     settings = get_settings()
 
-    logger.remove()  # drop default handler
+    logger.remove()
     logger.configure(patcher=_inject_request_id)
     logger.add(
         sys.stdout,
@@ -41,10 +32,8 @@ def configure_logging() -> None:
     )
 
 
-# Convenience event helpers so call sites read like business events,
-# not ad-hoc strings. Extend as new events are introduced.
-def log_user_registered(account_id: str, email: str) -> None:
-    logger.info("User registered | account_id={} email={}", account_id, email)
+def log_user_registered(account_id: str) -> None:
+    logger.info("User registered | account_id={}", account_id)
 
 
 def log_user_logged_in(account_id: str) -> None:
@@ -59,5 +48,9 @@ def log_profile_created(profile_id: str, account_id: str) -> None:
     logger.info("Profile created | profile_id={} account_id={}", profile_id, account_id)
 
 
-def log_authentication_failed(email: str, reason: str) -> None:
-    logger.error("Authentication failed | email={} reason={}", email, reason)
+def log_authentication_failed(reason: str) -> None:
+    logger.error("Authentication failed | reason={}", reason)
+
+
+def log_refresh_token_reuse(account_id: str) -> None:
+    logger.error("Refresh token reuse detected | account_id={}", account_id)
