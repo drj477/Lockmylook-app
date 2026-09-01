@@ -1,11 +1,17 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+_DEFAULT_JWT_SECRET = "change-me-in-.env-this-is-not-a-real-secret"
+
+
 class Settings(BaseSettings):
-    """Application configuration. Values come from environment variables /
-    a local .env file. Never hardcode secrets anywhere else in the codebase.
+    """Application configuration loaded from environment / local .env.
+
+    Security-sensitive settings intentionally have no insecure defaults. A
+    missing or weak JWT secret prevents the application from starting.
     """
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -15,25 +21,19 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     API_V1_PREFIX: str = "/api/v1"
 
-    # Database
-    DATABASE_URL: str = (
-        "postgresql+psycopg://lockmylook:lockmylook_dev@localhost:5432/lockmylook"
-    )
+    # Database: explicit configuration is required in production.
+    DATABASE_URL: str = ""
 
     # JWT
-    JWT_SECRET_KEY: str = "change-me-in-.env-this-is-not-a-real-secret"
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Virtual Try-On
     REPLICATE_API_TOKEN: str = ""
-
-    # Direct Pruna P-Image-Try-On provider (D-Tryon).
     PRUNA_API_KEY: str = ""
     PRUNA_PUBLIC_BASE_URL: str = ""
-
-    # Existing Gemini image provider.
     GEMINI_API_KEY: str = ""
     GEMINI_IMAGE_MODEL: str = "gemini-3.1-flash-image"
     GEMINI_IMAGE_SIZE: str = "2K"
@@ -45,6 +45,32 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
+
+    @model_validator(mode="after")
+    def validate_security_configuration(self) -> "Settings":
+        if self.JWT_ALGORITHM != "HS256":
+            raise ValueError("JWT_ALGORITHM must remain HS256 for the current symmetric-key design.")
+
+        if self.JWT_SECRET_KEY == _DEFAULT_JWT_SECRET:
+            raise ValueError("JWT_SECRET_KEY is still using the insecure development default.")
+
+        # 32 random bytes encoded with secrets.token_urlsafe(32) are normally
+        # 43+ characters. This rejects short human-chosen secrets.
+        if len(self.JWT_SECRET_KEY) < 43:
+            raise ValueError(
+                "JWT_SECRET_KEY must be at least 43 characters of cryptographically random data."
+            )
+
+        if self.ACCESS_TOKEN_EXPIRE_MINUTES <= 0 or self.ACCESS_TOKEN_EXPIRE_MINUTES > 60:
+            raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be between 1 and 60.")
+
+        if self.REFRESH_TOKEN_EXPIRE_DAYS <= 0 or self.REFRESH_TOKEN_EXPIRE_DAYS > 30:
+            raise ValueError("REFRESH_TOKEN_EXPIRE_DAYS must be between 1 and 30.")
+
+        if self.ENVIRONMENT.lower() in {"production", "prod"} and not self.DATABASE_URL:
+            raise ValueError("DATABASE_URL is required in production.")
+
+        return self
 
 
 @lru_cache
