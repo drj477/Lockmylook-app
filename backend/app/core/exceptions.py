@@ -40,6 +40,11 @@ class ConflictError(AppError):
     message = "Resource already exists."
 
 
+class TooManyRequestsError(AppError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    message = "Too many requests. Please try again later."
+
+
 class ValidationFailedError(AppError):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     message = "Validation failed."
@@ -50,9 +55,7 @@ def _envelope(success: bool, message: str, data: object = None, errors: list | N
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Wire up every exception type to the standard response envelope.
-    This is the ONLY place try/except-to-HTTP translation happens.
-    """
+    """Wire up every exception type to the standard response envelope."""
 
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
@@ -71,9 +74,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         ]
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=_envelope(
-                success=False, message="Validation failed.", errors=errors
-            ),
+            content=_envelope(success=False, message="Validation failed.", errors=errors),
         )
 
     @app.exception_handler(Exception)
