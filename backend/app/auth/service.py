@@ -34,6 +34,10 @@ _LOGIN_ACCOUNT_WINDOW = timedelta(minutes=15)
 _LOGIN_ACCOUNT_BLOCK = timedelta(minutes=2)
 _SIGNUP_IP_LIMIT = 5
 _SIGNUP_IP_WINDOW = timedelta(hours=1)
+_DUMMY_PASSWORD_HASH = (
+    "$argon2id$v=19$m=65536,t=3,p=4$OCyUAyHbp+OBPkG0hwcafQ$"
+    "061acIOMoPZuvm0qKBaGkrTBDSgKmVyWcmhrZCM1h1Q"
+)
 
 
 def _key_hash(value: str) -> str:
@@ -204,7 +208,10 @@ def login(
     if account:
         _check_account_throttle(session, account.id)
 
-    password_ok = bool(account and verify_password(request.password, account.hashed_password))
+    # Always perform an Argon2 verification, including for unknown accounts,
+    # so response timing does not become an account-enumeration oracle.
+    password_hash = account.hashed_password if account else _DUMMY_PASSWORD_HASH
+    password_ok = verify_password(request.password, password_hash)
     if not account or not password_ok or not account.is_active:
         if account:
             _record_failed_login(session, account.id)
