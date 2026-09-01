@@ -33,5 +33,4 @@ jobs:
       - name: Run authentication security tests
         env:
           ENVIRONMENT: test
-          JWT_SECRET_KEY: ${{ secrets.LOCKMYLOOK_TEST_JWT_SECRET }}
         run: python -m pytest -q tests/test_auth.py tests/test_security_config.py
