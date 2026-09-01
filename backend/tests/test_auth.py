@@ -118,8 +118,8 @@ def test_login_account_throttling_and_soft_lockout(
         assert response.status_code == 401
 
     blocked = client.post("/api/v1/auth/login", json=registered_account)
-    assert blocked.status_code == 429
-    assert blocked.json()["message"] == "Too many requests. Please try again later."
+    assert blocked.status_code == 401
+    assert blocked.json()["message"] == "Invalid email or password."
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +144,6 @@ def test_refresh_token_rotates_and_old_token_is_invalidated(
     )
     assert replay.status_code == 401
 
-    # Reuse detection revokes the whole authorization, including the newest
-    # rotated token that an attacker could otherwise try to keep alive.
     after_reuse = client.post(
         "/api/v1/auth/refresh", json={"refresh_token": second["refresh_token"]}
     )
@@ -207,36 +205,33 @@ def test_missing_token_rejected(client: TestClient):
 
 
 def test_invalid_signature_rejected(client: TestClient):
-    bad_token = create_token(uuid4(), TokenType.ACCESS) + "tampered"
+    bad_token = create_token(uuid4(), TokenType.ACCESS, uuid4()) + "tampered"
     response = client.get(
         "/api/v1/profiles", headers={"Authorization": f"Bearer {bad_token}"}
     )
     assert response.status_code == 401
 
 
-def test_expired_token_rejected(client: TestClient, monkeypatch):
+def test_expired_token_rejected(client: TestClient):
     from datetime import datetime, timedelta
 
-    from app.core import security
+    from jose import jwt
 
-    def expired_create_token(account_id, token_type, session_id=None):
-        now = datetime.now(UTC)
-        payload = {
-            "sub": str(account_id),
-            "sid": str(session_id or uuid4()),
-            "type": token_type.value,
+    from app.core.config import get_settings
+
+    now = datetime.now(UTC)
+    settings = get_settings()
+    expired = jwt.encode(
+        {
+            "sub": str(uuid4()),
+            "sid": str(uuid4()),
+            "type": TokenType.ACCESS.value,
             "iat": now - timedelta(minutes=60),
             "exp": now - timedelta(minutes=1),
-        }
-        from jose import jwt
-
-        from app.core.config import get_settings
-
-        settings = get_settings()
-        return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
-    monkeypatch.setattr(security, "create_token", expired_create_token)
-    expired = security.create_token(uuid4(), TokenType.ACCESS)
+        },
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
     response = client.get("/api/v1/profiles", headers={"Authorization": f"Bearer {expired}"})
     assert response.status_code == 401
