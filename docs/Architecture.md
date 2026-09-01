@@ -11,9 +11,10 @@ problem — see "Change policy" at the bottom.
 | ORM | SQLModel |
 | Database | PostgreSQL (Docker for infra only) |
 | Migrations | Alembic |
-| Auth | JWT (access + refresh) + Argon2 password hashing |
+| Auth | JWT (short-lived access + rotating refresh) + Argon2 password hashing |
+| Session security | Server-side revocable auth sessions; refresh-token hashes only |
 | Validation | Pydantic v2 |
-| Logging | Loguru — business events only, not request noise |
+| Logging | Loguru — business/security events only, not request noise |
 | Testing | Pytest (SQLite in-memory for auth/profile suites) |
 | Formatting/Lint/Types | Black, isort, Ruff, Pyright — enforced via pre-commit |
 
@@ -49,7 +50,7 @@ Router → Service → SQLModel → PostgreSQL
   Errors are wrapped globally by the exception handlers. Success responses
   are wrapped explicitly per-route using `app/core/schema.py::Envelope`.
 - **Request correlation ID.** `RequestIDMiddleware` (`app/core/middleware.py`)
-  reuses an incoming `X-Request-ID` header or generates one, stores it in a
+  reuses an incoming `X-Request-ID` header or generates one, stores one in a
   contextvar, and every log line for that request is tagged with it
   (`app/core/logging.py`). Echoed back in the response header.
 - **Fail-fast startup.** The app's `lifespan` handler runs `SELECT 1`
@@ -62,12 +63,33 @@ Router → Service → SQLModel → PostgreSQL
 ## Security-critical rule: profile ownership
 
 Every protected endpoint that touches a `Profile` must verify
-`profile.account_id == current_account.id` before returning or mutating
+`profile.account_id == current.account.id` before returning or mutating
 anything. Violations return **404**, not 403 — a 403 confirms the resource
 exists for someone else, which is itself information leakage.
 
 This is implemented once, centrally, in `app/profiles/service.py::get_owned_profile`
 and is covered by the mandatory `tests/test_profile_ownership.py` suite.
+
+## Authentication security
+
+- JWT signing uses an explicitly configured, cryptographically generated
+  HS256 secret; insecure defaults are rejected at configuration time.
+- Access tokens remain short-lived (30 minutes by default).
+- Refresh tokens are stored only as SHA-256 hashes in `auth_sessions`.
+- Refresh tokens rotate on every successful refresh. Reuse of an old token
+  revokes all sessions for the account.
+- Access and refresh JWTs carry a random server-side session ID (`sid`).
+  Protected requests validate that the session is active, so logout can
+  invalidate an otherwise unexpired access token immediately.
+- `/auth/logout` revokes the current session; `/auth/logout-all` revokes all
+  sessions for the account.
+- Login is throttled independently by source IP and account. Failed account
+  attempts use a short soft lockout while preserving generic authentication
+  responses. Signup is rate-limited per IP.
+- Login always performs an Argon2 verification, including for unknown users,
+  to reduce timing-based account enumeration.
+- Authentication logs never contain passwords, JWTs, refresh tokens, or raw
+  email addresses.
 
 ## Infrastructure boundary
 
@@ -78,18 +100,12 @@ later if justified). The application itself runs natively via
 ## Explicitly deferred (not "never," just "not yet")
 
 - Repository pattern
-- Redis / caching layer
+- Redis / distributed caching layer
 - Celery / background job queue
 - S3/R2 storage abstraction (Cloudinary free tier is sufficient)
 - Complex permission system (Account → Profile is the only relationship
   we need right now)
-- Audit logging beyond business-event logs
-- **Refresh-token revocation table.** Proposed in a Sprint 1 review as a
-  security improvement (server-side logout / stolen-token invalidation).
-  Deliberately deferred: it's a new table plus a lookup on every refresh,
-  i.e. real infrastructure, and nothing so far has surfaced a concrete need
-  for it. Revisit if there's an actual incident (leaked token, need to
-  remotely sign out a device) — not preemptively.
+- Audit logging beyond business/security events
 
 These get reintroduced when real usage data justifies them — not
 speculatively.
