@@ -1,7 +1,7 @@
 """add server-side authentication sessions and throttling
 
 Revision ID: 20260901_auth_security
-Revises: 20260825_20260825_garment_bg
+Revises: 20260825_garment_bg
 Create Date: 2026-09-01
 """
 
@@ -53,12 +53,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("scope", "key_hash", name="ux_auth_throttle_scope_key"),
     )
-    op.create_index(
-        "ix_auth_throttles_scope", "auth_throttles", ["scope"], unique=False
-    )
-    op.create_index(
-        "ix_auth_throttles_key_hash", "auth_throttles", ["key_hash"], unique=False
-    )
+    op.create_index("ix_auth_throttles_scope", "auth_throttles", ["scope"], unique=False)
+    op.create_index("ix_auth_throttles_key_hash", "auth_throttles", ["key_hash"], unique=False)
 
 
 def downgrade() -> None:
