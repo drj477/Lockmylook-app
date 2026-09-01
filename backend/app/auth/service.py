@@ -110,7 +110,7 @@ def _consume_rate_limit(
     session.commit()
 
 
-def _check_account_throttle(session: Session, account_id: UUID) -> None:
+def _account_is_throttled(session: Session, account_id: UUID) -> bool:
     now = datetime.now(UTC)
     bucket = session.exec(
         select(AuthThrottle).where(
@@ -119,17 +119,16 @@ def _check_account_throttle(session: Session, account_id: UUID) -> None:
         )
     ).first()
     if not bucket:
-        return
+        return False
 
     if now - bucket.window_started_at >= _LOGIN_ACCOUNT_WINDOW:
         bucket.attempts = 0
         bucket.window_started_at = now
         bucket.blocked_until = None
         session.commit()
-        return
+        return False
 
-    if bucket.blocked_until and bucket.blocked_until > now:
-        raise TooManyRequestsError()
+    return bool(bucket.blocked_until and bucket.blocked_until > now)
 
 
 def _record_failed_login(session: Session, account_id: UUID) -> None:
@@ -204,16 +203,14 @@ def login(
 
     email = str(request.email).strip().lower()
     account = session.exec(select(Account).where(Account.email == email)).first()
+    account_throttled = bool(account and _account_is_throttled(session, account.id))
 
-    if account:
-        _check_account_throttle(session, account.id)
-
-    # Always perform an Argon2 verification, including for unknown accounts,
-    # so response timing does not become an account-enumeration oracle.
+    # Always perform an Argon2 verification, including for unknown accounts and
+    # throttled accounts, so timing and response behavior remain generic.
     password_hash = account.hashed_password if account else _DUMMY_PASSWORD_HASH
     password_ok = verify_password(request.password, password_hash)
-    if not account or not password_ok or not account.is_active:
-        if account:
+    if account_throttled or not account or not password_ok or not account.is_active:
+        if account and not account_throttled:
             _record_failed_login(session, account.id)
         log_authentication_failed("invalid credentials")
         raise UnauthorizedError("Invalid email or password.")
