@@ -17,6 +17,7 @@ from app.core.logging import (
     log_refresh_token_reuse,
     log_user_logged_in,
     log_user_logged_out,
+    log_user_registered,
 )
 from app.core.security import (
     TokenType,
@@ -66,8 +67,6 @@ def _get_or_create_throttle(
     try:
         session.flush()
     except IntegrityError:
-        # Another worker created the same bucket concurrently. Roll back only
-        # the failed insert, then acquire the now-existing row.
         session.rollback()
         bucket = session.exec(
             select(AuthThrottle)
@@ -106,14 +105,13 @@ def _consume_rate_limit(
         session.commit()
         raise TooManyRequestsError()
 
-    session.flush()
+    session.commit()
 
 
 def _check_account_throttle(session: Session, account_id: UUID) -> None:
     now = datetime.now(UTC)
     bucket = session.exec(
-        select(AuthThrottle)
-        .where(
+        select(AuthThrottle).where(
             AuthThrottle.scope == "login_account",
             AuthThrottle.key_hash == _key_hash(f"account:{account_id}"),
         )
@@ -125,7 +123,7 @@ def _check_account_throttle(session: Session, account_id: UUID) -> None:
         bucket.attempts = 0
         bucket.window_started_at = now
         bucket.blocked_until = None
-        session.flush()
+        session.commit()
         return
 
     if bucket.blocked_until and bucket.blocked_until > now:
@@ -145,7 +143,7 @@ def _record_failed_login(session: Session, account_id: UUID) -> None:
     bucket.last_attempt_at = now
     if bucket.attempts >= _LOGIN_ACCOUNT_LIMIT:
         bucket.blocked_until = now + _LOGIN_ACCOUNT_BLOCK
-    session.flush()
+    session.commit()
 
 
 def _clear_failed_login(session: Session, account_id: UUID) -> None:
@@ -182,6 +180,7 @@ def signup(
     session.add(account)
     session.commit()
     session.refresh(account)
+    log_user_registered(str(account.id))
     return account
 
 
@@ -207,15 +206,11 @@ def login(
     if account:
         _check_account_throttle(session, account.id)
 
-    # Keep the same external error for unknown users, wrong passwords, and
-    # disabled accounts. Failed-password work is performed before the branch
-    # so the common failure path does not expose account existence.
     password_ok = bool(account and verify_password(request.password, account.hashed_password))
     if not account or not password_ok or not account.is_active:
         if account:
             _record_failed_login(session, account.id)
         log_authentication_failed("invalid credentials")
-        session.commit()
         raise UnauthorizedError("Invalid email or password.")
 
     _clear_failed_login(session, account.id)
@@ -245,16 +240,11 @@ def refresh(session: Session, refresh_token: str) -> TokenPair:
     if not auth_session:
         raise UnauthorizedError("Invalid or expired refresh token.")
 
-    # A previously rotated token is a replay signal. Revoke every session for
-    # the account so a stolen refresh token cannot keep another device alive.
     if not hmac.compare_digest(auth_session.refresh_token_hash, _token_hash(refresh_token)):
-        session.exec(
+        sessions = session.exec(
             select(AuthSession)
             .where(AuthSession.account_id == auth_session.account_id)
             .with_for_update()
-        )
-        sessions = session.exec(
-            select(AuthSession).where(AuthSession.account_id == auth_session.account_id)
         ).all()
         for item in sessions:
             if item.revoked_at is None:
@@ -276,7 +266,6 @@ def refresh(session: Session, refresh_token: str) -> TokenPair:
     new_access = create_token(account.id, TokenType.ACCESS, auth_session.id)
     auth_session.refresh_token_hash = _token_hash(new_refresh)
     auth_session.last_used_at = now
-    session.add(auth_session)
     session.commit()
 
     return TokenPair(access_token=new_access, refresh_token=new_refresh)
