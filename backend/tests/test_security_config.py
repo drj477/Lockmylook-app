@@ -1,3 +1,5 @@
+import secrets
+
 import pytest
 
 from app.core.config import Settings
@@ -17,7 +19,7 @@ def test_production_requires_database_url(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     with pytest.raises(ValueError, match="DATABASE_URL is required in production"):
         Settings(
-            JWT_SECRET_KEY="A" * 64,
+            JWT_SECRET_KEY=secrets.token_urlsafe(32),
             ENVIRONMENT="production",
             DATABASE_URL="",
         )
@@ -25,7 +27,7 @@ def test_production_requires_database_url(monkeypatch):
 
 def test_valid_test_configuration_is_accepted():
     settings = Settings(
-        JWT_SECRET_KEY="A" * 64,
+        JWT_SECRET_KEY=secrets.token_urlsafe(32),
         ENVIRONMENT="test",
         DATABASE_URL="sqlite://",
     )
