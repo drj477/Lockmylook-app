@@ -21,6 +21,10 @@ class CurrentAuth:
     auth_session: AuthSession
 
 
+def _as_utc(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 def get_current_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     session: Session = Depends(get_session),
@@ -41,7 +45,7 @@ def get_current_auth(
         not auth_session
         or auth_session.account_id != claims.account_id
         or auth_session.revoked_at is not None
-        or auth_session.expires_at <= datetime.now(UTC)
+        or _as_utc(auth_session.expires_at) <= datetime.now(UTC)
     ):
         raise UnauthorizedError("Invalid or expired token.")
 
