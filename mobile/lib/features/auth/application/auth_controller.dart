@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mobile/features/auth/application/auth_providers.dart';
@@ -129,6 +130,10 @@ class AuthController extends Notifier<AuthState> {
   }
 
   String _messageFromError(Object error) {
+    if (error is DioException && error.response?.statusCode == 401) {
+      return 'Invalid email or password.';
+    }
+
     return error.toString();
   }
 }
