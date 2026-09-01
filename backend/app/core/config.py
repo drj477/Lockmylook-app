@@ -1,11 +1,12 @@
 from functools import lru_cache
+import hashlib
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-_DEFAULT_JWT_SECRET = "change-me-in-.env-this-is-not-a-real-secret"
 _DEFAULT_DATABASE_URL = "postgresql+psycopg://lockmylook:lockmylook_dev@localhost:5432/lockmylook"
+_INSECURE_JWT_SECRET_SHA256 = "f0e3c18d1c64651b40d1b792ce20e5684d37493f6e8675117b5c9f502ad63c13"
 
 
 class Settings(BaseSettings):
@@ -52,8 +53,9 @@ class Settings(BaseSettings):
         if self.JWT_ALGORITHM != "HS256":
             raise ValueError("JWT_ALGORITHM must remain HS256 for the current symmetric-key design.")
 
-        if self.JWT_SECRET_KEY == _DEFAULT_JWT_SECRET:
-            raise ValueError("JWT_SECRET_KEY is still using the insecure development default.")
+        secret_hash = hashlib.sha256(self.JWT_SECRET_KEY.encode("utf-8")).hexdigest()
+        if secret_hash == _INSECURE_JWT_SECRET_SHA256:
+            raise ValueError("JWT_SECRET_KEY is still using an insecure development secret.")
 
         if len(self.JWT_SECRET_KEY) < 43:
             raise ValueError(
