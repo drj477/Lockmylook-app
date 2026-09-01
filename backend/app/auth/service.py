@@ -40,6 +40,11 @@ _DUMMY_PASSWORD_HASH = (
 )
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Normalize DB datetimes for both PostgreSQL and SQLite test storage."""
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
 def _key_hash(value: str) -> str:
     secret = get_settings().JWT_SECRET_KEY.encode("utf-8")
     return hmac.new(secret, value.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -91,12 +96,12 @@ def _consume_rate_limit(
     now = datetime.now(UTC)
     bucket = _get_or_create_throttle(session, scope, _key_hash(key))
 
-    if now - bucket.window_started_at >= window:
+    if now - _as_utc(bucket.window_started_at) >= window:
         bucket.window_started_at = now
         bucket.attempts = 0
         bucket.blocked_until = None
 
-    if bucket.blocked_until and bucket.blocked_until > now:
+    if bucket.blocked_until and _as_utc(bucket.blocked_until) > now:
         raise TooManyRequestsError()
 
     bucket.attempts += 1
@@ -121,21 +126,21 @@ def _account_is_throttled(session: Session, account_id: UUID) -> bool:
     if not bucket:
         return False
 
-    if now - bucket.window_started_at >= _LOGIN_ACCOUNT_WINDOW:
+    if now - _as_utc(bucket.window_started_at) >= _LOGIN_ACCOUNT_WINDOW:
         bucket.attempts = 0
         bucket.window_started_at = now
         bucket.blocked_until = None
         session.commit()
         return False
 
-    return bool(bucket.blocked_until and bucket.blocked_until > now)
+    return bool(bucket.blocked_until and _as_utc(bucket.blocked_until) > now)
 
 
 def _record_failed_login(session: Session, account_id: UUID) -> None:
     now = datetime.now(UTC)
     bucket = _get_or_create_throttle(session, "login_account", _key_hash(f"account:{account_id}"))
 
-    if now - bucket.window_started_at >= _LOGIN_ACCOUNT_WINDOW:
+    if now - _as_utc(bucket.window_started_at) >= _LOGIN_ACCOUNT_WINDOW:
         bucket.window_started_at = now
         bucket.attempts = 0
         bucket.blocked_until = None
@@ -205,8 +210,6 @@ def login(
     account = session.exec(select(Account).where(Account.email == email)).first()
     account_throttled = bool(account and _account_is_throttled(session, account.id))
 
-    # Always perform an Argon2 verification, including for unknown accounts and
-    # throttled accounts, so timing and response behavior remain generic.
     password_hash = account.hashed_password if account else _DUMMY_PASSWORD_HASH
     password_ok = verify_password(request.password, password_hash)
     if account_throttled or not account or not password_ok or not account.is_active:
@@ -255,7 +258,7 @@ def refresh(session: Session, refresh_token: str) -> TokenPair:
         log_refresh_token_reuse(str(auth_session.account_id))
         raise UnauthorizedError("Invalid or expired refresh token.")
 
-    if auth_session.revoked_at or auth_session.expires_at <= now:
+    if auth_session.revoked_at or _as_utc(auth_session.expires_at) <= now:
         raise UnauthorizedError("Invalid or expired refresh token.")
 
     account = session.get(Account, auth_session.account_id)
