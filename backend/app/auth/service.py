@@ -1,6 +1,6 @@
-from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from jose import JWTError
@@ -51,9 +51,7 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _get_or_create_throttle(
-    session: Session, scope: str, key_hash: str
-) -> AuthThrottle:
+def _get_or_create_throttle(session: Session, scope: str, key_hash: str) -> AuthThrottle:
     bucket = session.exec(
         select(AuthThrottle)
         .where(AuthThrottle.scope == scope, AuthThrottle.key_hash == key_hash)
