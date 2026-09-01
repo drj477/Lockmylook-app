@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -40,7 +41,7 @@ def get_current_auth(
         not auth_session
         or auth_session.account_id != claims.account_id
         or auth_session.revoked_at is not None
-        or auth_session.expires_at <= __import__("datetime").datetime.now(__import__("datetime").UTC)
+        or auth_session.expires_at <= datetime.now(UTC)
     ):
         raise UnauthorizedError("Invalid or expired token.")
 
