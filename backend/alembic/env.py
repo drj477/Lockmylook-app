@@ -5,6 +5,7 @@ from sqlmodel import SQLModel
 
 from alembic import context
 from app.auth.model import Account  # noqa: F401
+from app.auth.session_model import AuthSession, AuthThrottle  # noqa: F401
 from app.core.config import get_settings
 from app.credits.model import CreditTransaction  # noqa: F401
 from app.profiles.model import Profile  # noqa: F401
